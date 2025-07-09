@@ -37,11 +37,11 @@ I developed it to make navigation feel more natural after migrating from OneNote
 1. **Download:** Obtain the plugin files (`main.js`, `manifest.json`, `styles.css`) from the plugin's GitHub repository or the Obsidian community plugin store -- after some time it may be avaialble at https://obsidian.md/plugins?search=note-navigator.
 2. **Create Plugin Folder:** Create a new folder in your Obsidian vault's plugins directory (e.g., `.obsidian/plugins/note-navigator`).
 3. **Place Files:** Copy the downloaded plugin files into the newly created folder.
-4. **Enable Plugin:** Open Obsidian, go to "Settings" -> "Community plugins", and enable "Note Navigator".
+4. **Enable Plugin:** Open Obsidian (or reload Obsidian), go to "Settings" -> "Community plugins", and enable "Note Navigator".
 
 ## Using Note Navigator "Navigate and Delete" Command
 
-1. **Assign a Hotkey (Recommended):** Go to "Settings" -> "Hotkeys" and search for "note navigator" to see the plugin commands. Assign a hotkey combination (e.g., `Ctrl+Alt+D` or `Cmd+Option+D`) for easy access.
+1. **Assign a Hotkey (Recommended):** Go to "Settings" -> "Hotkeys" and search for "note navigator" to see the plugin commands. Assign a hotkey combination to commands you wish to execute (e.g., `Ctrl+Alt+D` or `Cmd+Option+D`).
 2. **Configure Settings:** Adjust plugin settings to match your workflow. You may want to show confirmations the first few times you use it, and then once you're comfortable with how it works, you can hide the confirmation prompts.
 3. **Open a Note:** Open the note you want to review and potentially delete.
 4. **Execute the Command:** Use the assigned hotkey (or the command palette) to execute the "Navigate and Delete" command.
