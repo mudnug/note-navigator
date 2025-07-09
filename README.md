@@ -34,11 +34,10 @@ I developed it to make navigation feel more natural after migrating from OneNote
 
 ## How to Install the Plugin
 
-1. **Download:** Obtain the plugin files (`main.js`, `manifest.json`, `styles.css`) from the plugin's GitHub repository or the Obsidian community plugin store.
+1. **Download:** Obtain the plugin files (`main.js`, `manifest.json`, `styles.css`) from the plugin's GitHub repository or the Obsidian community plugin store -- after some time it may be avaialble at https://obsidian.md/plugins?search=note-navigator.
 2. **Create Plugin Folder:** Create a new folder in your Obsidian vault's plugins directory (e.g., `.obsidian/plugins/note-navigator`).
 3. **Place Files:** Copy the downloaded plugin files into the newly created folder.
 4. **Enable Plugin:** Open Obsidian, go to "Settings" -> "Community plugins", and enable "Note Navigator".
-Note: After some time it may be avaialble at https://obsidian.md/plugins?search=note-navigator
 
 ## Using Note Navigator "Navigate and Delete" Command
 
