@@ -1,0 +1,11 @@
+{
+	"id": "note-navigator",
+	"name": "Note Navigator",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Streamlines note review by automatically navigating to the next note upon deletion. Adds commands to go to the previous and next note, respecting user-selected sort order.",
+	"author": "m",
+	"authorUrl": "https://github.com/mudnug/delete-and-navigate",
+	"fundingUrl": "",
+	"isDesktopOnly": true
+}

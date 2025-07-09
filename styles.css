@@ -1,0 +1,33 @@
+.custom-welcome-message {
+	color: var(--text-accent);
+	font-size: 14px;
+	margin-top: 10px;
+}
+
+.note-navigator-button-container {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 20px;
+}
+
+.note-navigator-confirmation ul {
+	margin-top: 0;
+}
+
+.note-navigator-confirmation .section-heading {
+	font-weight: bold;
+	margin-bottom: 5px;
+}
+
+.note-navigator-wide-input {
+	width: 250px;
+}
+
+.note-navigator-stats-list {
+	margin: 0
+}
+
+hr.note-navigator-moderate {
+	margin: 1rem 0;
+}
