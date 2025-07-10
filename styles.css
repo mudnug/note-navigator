@@ -31,3 +31,7 @@
 hr.note-navigator-moderate {
 	margin: 1rem 0;
 }
+
+.note-navigator-feedback-link {
+	text-decoration: underline;
+}

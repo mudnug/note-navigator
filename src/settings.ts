@@ -179,7 +179,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 
 			const feedbackLink = containerEl.createEl('a', { href: 'https://github.com/mudnug/note-navigator', text: 'GitHub' });
 			feedbackLink.setAttr('target', '_blank');
-			feedbackLink.style.textDecoration = 'underline';
+			feedbackLink.addClass('note-navigator-feedback-link');
 			feedbackParagraph.append(feedbackLink, ", or ");
 
 			const supportLink = containerEl.createEl('a', { href: 'https://buymeacoffee.com/softwarefriend', text: 'support the developer' });

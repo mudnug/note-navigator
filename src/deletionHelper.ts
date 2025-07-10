@@ -70,19 +70,25 @@ export class DeletionHelper {
 	}
 
 	private async deletePerSetting(fileOrFolder: TFile | TFolder) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const deletionMethod = (this.app.vault as any).getConfig("trashOption") as "local" | "system" | "none";
+		if (fileOrFolder instanceof TFile) {
+			// Use the new fileManager.trashFile for files
+			await this.app.fileManager.trashFile(fileOrFolder);
+		} else if (fileOrFolder instanceof TFolder) {
+			// Keep the original logic for folders
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const deletionMethod = (this.app.vault as any).getConfig("trashOption") as "local" | "system" | "none";
 
-		switch (deletionMethod) {
-			case 'local': // obsidian trash folder
-				await this.app.vault.trash(fileOrFolder, false);
-				break;
-			case 'system':
-				await this.app.vault.trash(fileOrFolder, true);
-				break;
-			case 'none':
-				await this.app.vault.delete(fileOrFolder);
-				break;
+			switch (deletionMethod) {
+				case 'local': // obsidian trash folder
+					await this.app.vault.trash(fileOrFolder, false);
+					break;
+				case 'system':
+					await this.app.vault.trash(fileOrFolder, true);
+					break;
+				case 'none':
+					await this.app.vault.delete(fileOrFolder);
+					break;
+			}
 		}
 
 		if (this.settings.showDeleteNotice) {

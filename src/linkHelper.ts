@@ -70,8 +70,9 @@ export class LinkHelper {
 			link => referenceCounts.get(this.decodePath(link)) === 1
 		);
 
-		const attachmentFiles = singularReferenceLinks.map(link => this.app.vault.getAbstractFileByPath(this.decodePath(link)))
-			.filter(file => file instanceof TFile && file.extension !== 'md') as TFile[];
+		const attachmentFiles = singularReferenceLinks
+			.map(link => this.app.vault.getAbstractFileByPath(this.decodePath(link)))
+			.filter((file): file is TFile => file instanceof TFile && file.extension !== 'md');
 
 		return attachmentFiles;
 	}

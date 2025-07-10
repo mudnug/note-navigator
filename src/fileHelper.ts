@@ -22,10 +22,10 @@ export class FileHelper {
 
 	isFolderEmptyAfterDeletion(folder: TFolder, filesToDelete: TFile[], foldersToDelete: Set<TFolder>): boolean {
 		const children = folder.children;
-		const folderFiles = children.filter(child => child instanceof TFile) as TFile[];
+		const folderFiles = children.filter(child => child instanceof TFile);
 
 		const remainingFiles = folderFiles.filter(file => !filesToDelete.some(f => f.path === file.path));
-		const hasNoSubfolders = children.every(child => !(child instanceof TFolder) || foldersToDelete.has(child as TFolder));
+		const hasNoSubfolders = children.every(child => !(child instanceof TFolder) || foldersToDelete.has(child));
 
 		return remainingFiles.length === 0 && hasNoSubfolders;
 	}
@@ -95,7 +95,7 @@ export class FileHelper {
 			// For "next", traverse into the deepest child folder
 			if (direction === "next") {
 				while (targetFolder) {
-					const childFolders = targetFolder.children.filter((child): child is TFolder => child instanceof TFolder) as TFolder[];
+					const childFolders = targetFolder.children.filter((child): child is TFolder => child instanceof TFolder);
 					if (childFolders.length === 0) break;
 
 					targetFolder = childFolders.sort((a, b) =>
@@ -137,7 +137,7 @@ export class FileHelper {
 
 	private getAdjacentFileInFolder(folder: TFolder, currentFile: TFile, direction: "next" | "prev", isOpeningNewFolder: boolean): TFile | null {
 		const folderFiles = this.sortFiles(
-			folder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md") as TFile[]
+			folder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
 		);
 
 		if (isOpeningNewFolder) {
@@ -166,7 +166,7 @@ export class FileHelper {
 
 	private getTargetFolders(currentFolder: TFolder, direction: "next" | "prev"): TFolder[] | null {
 		const getChildFolders = (folder: TFolder): TFolder[] =>
-			folder.children.filter((child): child is TFolder => child instanceof TFolder) as TFolder[];
+			folder.children.filter((child): child is TFolder => child instanceof TFolder);
 
 		if (direction === "prev") {
 			const parent = currentFolder.parent;
