@@ -65,8 +65,8 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			.setDesc('Navigate through files in the entire vault or just within the active folder.')
 			.addDropdown(dropdown => {
 				dropdown
-					.addOption('entireVault', 'Entire Vault')
-					.addOption('activeFolder', 'Active Folder')
+					.addOption('entireVault', 'Entire vault')
+					.addOption('activeFolder', 'Active folder')
 					.setValue(this.plugin.settings.navigationScope)
 					.onChange(async (value) => {
 						this.plugin.settings.navigationScope = value as 'entireVault' | 'activeFolder';
@@ -99,7 +99,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Auto-Navigate after deletion')
+			.setName('Auto-navigate after deletion')
 			.setDesc('Automatically navigate to the next file in sort order of the file-explorer after deletion. Disable to use Obsidian\'s default behavior.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.navigateOnDelete)
@@ -200,7 +200,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 		welcomeSetting.descEl.addClass('note-navigator-welcome-message');
 
 		welcomeSetting.addButton(button => {
-			button.setButtonText('Configure Hotkeys')
+			button.setButtonText('Configure hotkeys')
 				.setIcon('plus-circle')
 				.onClick(() => {
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
