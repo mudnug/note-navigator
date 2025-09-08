@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, App } from 'obsidian';
+import { Notice, Plugin, TFile, App, Editor, MarkdownView } from 'obsidian';
 
 import { DeletionHelper } from './deletionHelper';
 import { FileHelper } from './fileHelper';
@@ -42,37 +42,81 @@ export default class NoteNavigator extends Plugin {
 	private registerCommands() {
 		const commands = [
 			{
-				callback: () => this.NoteNavigator(),
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile) {
+						if (!checking) this.NoteNavigator();
+						return true;
+					}
+					return false;
+				},
 				id: 'delete-and-navigate',
 				name: 'Delete current file and navigate to next note',
 			},
 			{
-				callback: () => this.navigateFile("next"),
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile) {
+						if (!checking) this.navigateFile("next");
+						return true;
+					}
+					return false;
+				},
 				id: 'navigate-next-file',
 				name: 'Navigate to next file',
 			},
 			{
-				callback: () => this.navigateFile("prev"),
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile) {
+						if (!checking) this.navigateFile("prev");
+						return true;
+					}
+					return false;
+				},
 				id: 'navigate-previous-file',
 				name: 'Navigate to previous file',
 			},
 			{
-				callback: () => this.outputDebugMessages(),
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile && activeFile.parent) {
+						if (!checking) this.outputDebugMessages();
+						return true;
+					}
+					return false;
+				},
 				id: 'navigate-debug-sorting',
 				name: 'Log debugging messages to console',
 			},
 			{
-				callback: () => scrollToEndAndBeyond(this.app),
+				editorCallback: (editor: Editor) => {
+					scrollToEndAndBeyond(editor);
+				},
 				id: 'navigate-scroll-to-end-and-beyond',
 				name: 'Scroll past end of note',
 			},
 			{
-				callback: () => this.moveAndNavigate(),
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile) {
+						if (!checking) this.moveAndNavigate();
+						return true;
+					}
+					return false;
+				},
 				id: 'move-and-navigate',
 				name: 'Move current file and navigate to next note',
 			},
 			{
-				callback: () => this.renameParentFolder(),
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile && activeFile.parent) {
+						if (!checking) this.renameParentFolder();
+						return true;
+					}
+					return false;
+				},
 				id: 'rename-parent-folder',
 				name: 'Rename parent folder of current note',
 			},
