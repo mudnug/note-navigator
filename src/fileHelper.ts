@@ -132,6 +132,26 @@ export class FileHelper {
 			targetFolders = targetFolder ? this.getTargetFolders(targetFolder, direction) : null;
 		}
 
+		// Wraparound logic for root folder
+		if (direction === "next" && originalFolder.parent == null) {
+			// We're in the root folder and at the end, so wrap to the first file in the root
+			const rootFiles = this.sortFiles(
+				originalFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
+			);
+			if (rootFiles.length > 0) {
+				return rootFiles[0];
+			}
+		}
+		// For prev, wrap to last file in root
+		if (direction === "prev" && originalFolder.parent == null) {
+			const rootFiles = this.sortFiles(
+				originalFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
+			);
+			if (rootFiles.length > 0) {
+				return rootFiles[rootFiles.length - 1];
+			}
+		}
+
 		return null;
 	}
 

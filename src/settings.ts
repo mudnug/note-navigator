@@ -197,7 +197,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 
 		const welcomeSetting = new Setting(containerEl)
 			.setDesc('Assign hotkeys to the plugin commands for easier use.');
-		welcomeSetting.descEl.addClass('custom-welcome-message');
+		welcomeSetting.descEl.addClass('note-navigator-welcome-message');
 
 		welcomeSetting.addButton(button => {
 			button.setButtonText('Configure Hotkeys')
