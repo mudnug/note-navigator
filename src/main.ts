@@ -189,7 +189,7 @@ export default class NoteNavigator extends Plugin {
 				}
 			}
 		};
-		this.app.vault.on('rename', onRename);
+		this.registerEvent(this.app.vault.on('rename', onRename));
 
 		// Set up a MutationObserver to detect dialog close/cancel and clean up the event handler
 		let dialogObserver: MutationObserver | null = null;
