@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, App, Editor, MarkdownView } from 'obsidian';
+import { Notice, Plugin, TFile, App, Editor, TFolder, SuggestModal } from 'obsidian';
 
 import { DeletionHelper } from './deletionHelper';
 import { FileHelper } from './fileHelper';
@@ -119,6 +119,18 @@ export default class NoteNavigator extends Plugin {
 				},
 				id: 'rename-parent-folder',
 				name: 'Rename parent folder of current note',
+				},
+			{
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (activeFile && activeFile.parent) {
+						if (!checking) this.moveParentFolderAndNavigate();
+						return true;
+					}
+					return false;
+				},
+				id: 'move-parent-folder-and-navigate',
+				name: 'Move parent folder and navigate to next note',
 			},
 		];
 
@@ -171,14 +183,32 @@ export default class NoteNavigator extends Plugin {
 			new Notice('A file must be open in the active editor.');
 			return;
 		}
+		this.handleMoveAndNavigate({
+			getNextFilePath: () => {
+				const nextFile = this.fileHelper.getAdjacentFile(activeFile, "next", this.settings.navigationScope);
+				return nextFile ? nextFile.path : null;
+			},
+			getTarget: () => activeFile,
+			moveCommandId: "file-explorer:move-file"
+		});
+	}
 
-		const nextFile = this.fileHelper.getAdjacentFile(activeFile, "next", this.settings.navigationScope);
-		const nextFilePath = nextFile ? nextFile.path : null;
-		if (!nextFilePath) return;
+	private handleMoveAndNavigate({
+		getNextFilePath,
+		getTarget,
+		moveCommandId
+	}: {
+		getTarget: () => unknown,
+		getNextFilePath: () => string | null,
+		moveCommandId: string
+	}) {
 
-		// Listen for the file rename (move) event
+		const target = getTarget();
+		const nextFilePath = getNextFilePath();
+		if (!target || !nextFilePath) return;
+
 		const onRename = async (file: TFile, oldPath: string) => {
-			if (file instanceof TFile && file.name === activeFile.name && oldPath.endsWith(activeFile.name)) {
+			if (file === target) {
 				this.app.vault.off('rename', onRename);
 				if (dialogObserver) dialogObserver.disconnect();
 				const fileToOpen = this.app.vault.getAbstractFileByPath(nextFilePath);
@@ -191,7 +221,6 @@ export default class NoteNavigator extends Plugin {
 		};
 		this.registerEvent(this.app.vault.on('rename', onRename));
 
-		// Set up a MutationObserver to detect dialog close/cancel and clean up the event handler
 		let dialogObserver: MutationObserver | null = null;
 		const waitForDialog = () => {
 			let dialog = document.querySelector('.modal.mod-rename-file');
@@ -216,7 +245,7 @@ export default class NoteNavigator extends Plugin {
 		waitForDialog();
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		(this.app as App & { commands?: any }).commands?.executeCommandById?.("file-explorer:move-file");
+		(this.app as App & { commands?: { executeCommandById?: (id: string) => void } }).commands?.executeCommandById?.(moveCommandId);
 	}
 
 	private outputDebugMessages() {
@@ -290,5 +319,89 @@ export default class NoteNavigator extends Plugin {
 			new Notice('promptForFileRename is not available in this version of Obsidian.');
 		}
 	}
+
+	private getAllFolders(): TFolder[] {
+		const allFolders: TFolder[] = [];
+		function traverse(folder: TFolder) {
+			allFolders.push(folder);
+			folder.children.forEach(child => {
+				if (child instanceof TFolder) traverse(child);
+			});
+		}
+		traverse(this.app.vault.getRoot());
+		return allFolders;
+	}
+
+	private async moveParentFolderAndNavigate() {
+		const activeFile = this.app.workspace.getActiveFile();
+		if (!activeFile || !activeFile.parent) {
+			new Notice('No active file or parent folder found.');
+			return;
+		}
+		const parentFolder = activeFile.parent as TFolder;
+		const allFolders = this.getAllFolders().filter(f => f !== parentFolder);
+
+		const modal = new FolderSuggester(this.app, allFolders);
+		modal.onSelect = async (destination: TFolder) => {
+			// Get the files in the folder before moving, so we can identify the next file
+			const folderFiles = parentFolder.children.filter((child): child is TFile => child instanceof TFile);
+			const sortedFiles = this.fileHelper.sortFiles(folderFiles);
+			let nextFile: TFile | null = null;
+			if (sortedFiles.length > 0) {
+				const boundaryFile = sortedFiles[sortedFiles.length - 1];
+				nextFile = this.fileHelper.getAdjacentFile(boundaryFile, "next", this.settings.navigationScope);
+			}
+
+			const newPath = destination.path + '/' + parentFolder.name;
+			try {
+				await this.app.vault.rename(parentFolder, newPath);
+				new Notice(`Successfully moved ${parentFolder.name} to ${destination.name}`, 2800);
+				// Reveal and select the moved folder
+				const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
+				if (fileExplorerLeaf && fileExplorerLeaf.view) {
+					// @ts-ignore
+					fileExplorerLeaf.view.revealInFolder(parentFolder);
+					// @ts-ignore
+					if (typeof fileExplorerLeaf.view.selectFile === "function") {
+						// @ts-ignore
+						fileExplorerLeaf.view.selectFile(parentFolder);
+					}
+				}
+
+					// Now open the previously calculated next file
+					if (nextFile) {
+						await this.app.workspace.getLeaf().openFile(nextFile);
+						this.settings.numberOfFilesNavigated++;
+						await this.saveSettings();
+					}
+				} catch (e) {
+					new Notice(`Error: ${e.toString()}`);
+				}
+			};
+			modal.open();
+		}
+	}
+
+class FolderSuggester extends SuggestModal<TFolder> {
+	folders: TFolder[];
+
+	constructor(app: App, folders: TFolder[]) {
+		super(app);
+		this.folders = folders;
+	}
+
+	getSuggestions(query: string): TFolder[] {
+		return this.folders.filter(f => f.path.toLowerCase().includes(query.toLowerCase()));
+	}
+
+	renderSuggestion(folder: TFolder, el: HTMLElement) {
+		el.setText(folder.path);
+	}
+
+	onChooseSuggestion(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
+		this.onSelect(folder);
+	}
+
+	onSelect: (folder: TFolder) => void = () => {};
 }
 
