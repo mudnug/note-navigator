@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, App, Editor, TFolder, SuggestModal } from 'obsidian';
+import { Notice, Plugin, TFile, App, Editor, TFolder, SuggestModal, TAbstractFile } from 'obsidian';
 
 import { DeletionHelper } from './deletionHelper';
 import { FileHelper } from './fileHelper';
@@ -28,7 +28,7 @@ export default class NoteNavigator extends Plugin {
 			console.error('Error loading settings:', error);
 		}
 	}
-
+	
 	async saveSettings() {
 		try {
 			await this.saveData(this.settings);
@@ -45,7 +45,7 @@ export default class NoteNavigator extends Plugin {
 				checkCallback: (checking: boolean) => {
 					const activeFile = this.app.workspace.getActiveFile();
 					if (activeFile) {
-						if (!checking) this.NoteNavigator();
+						if (!checking) this.deleteCurrentFileAndNavigate();
 						return true;
 					}
 					return false;
@@ -119,7 +119,7 @@ export default class NoteNavigator extends Plugin {
 				},
 				id: 'rename-parent-folder',
 				name: 'Rename parent folder of current note',
-				},
+			},
 			{
 				checkCallback: (checking: boolean) => {
 					const activeFile = this.app.workspace.getActiveFile();
@@ -139,7 +139,7 @@ export default class NoteNavigator extends Plugin {
 		}
 	}
 
-	private async NoteNavigator() {
+	private async deleteCurrentFileAndNavigate() {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile) {
 			new Notice('A file must be open in the active editor.');
@@ -207,7 +207,7 @@ export default class NoteNavigator extends Plugin {
 		const nextFilePath = getNextFilePath();
 		if (!target || !nextFilePath) return;
 
-		const onRename = async (file: TFile, oldPath: string) => {
+		const onRename = async (file: TAbstractFile, oldPath: string) => {
 			if (file === target) {
 				this.app.vault.off('rename', onRename);
 				if (dialogObserver) dialogObserver.disconnect();
@@ -306,7 +306,7 @@ export default class NoteNavigator extends Plugin {
 				if (textarea) {
 					if (textarea.value === "undefined") {
 						textarea.value = parentFolder.name;
-					} 
+					}
 					textarea.focus();
 					textarea.select();
 				}
@@ -321,15 +321,7 @@ export default class NoteNavigator extends Plugin {
 	}
 
 	private getAllFolders(): TFolder[] {
-		const allFolders: TFolder[] = [];
-		function traverse(folder: TFolder) {
-			allFolders.push(folder);
-			folder.children.forEach(child => {
-				if (child instanceof TFolder) traverse(child);
-			});
-		}
-		traverse(this.app.vault.getRoot());
-		return allFolders;
+		return (this.app.vault as any).getAllFolders() as TFolder[];
 	}
 
 	private async moveParentFolderAndNavigate() {
@@ -354,7 +346,7 @@ export default class NoteNavigator extends Plugin {
 
 			const newPath = destination.path + '/' + parentFolder.name;
 			try {
-				await this.app.vault.rename(parentFolder, newPath);
+				await (this.app.fileManager as any).renameFile(parentFolder, newPath);
 				new Notice(`Successfully moved ${parentFolder.name} to ${destination.name}`, 2800);
 				// Reveal and select the moved folder
 				const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
@@ -368,19 +360,19 @@ export default class NoteNavigator extends Plugin {
 					}
 				}
 
-					// Now open the previously calculated next file
-					if (nextFile) {
-						await this.app.workspace.getLeaf().openFile(nextFile);
-						this.settings.numberOfFilesNavigated++;
-						await this.saveSettings();
-					}
-				} catch (e) {
-					new Notice(`Error: ${e.toString()}`);
+				// Now open the previously calculated next file
+				if (nextFile) {
+					await this.app.workspace.getLeaf().openFile(nextFile);
+					this.settings.numberOfFilesNavigated++;
+					await this.saveSettings();
 				}
-			};
-			modal.open();
-		}
+			} catch (e) {
+				new Notice(`Error: ${e.toString()}`);
+			}
+		};
+		modal.open();
 	}
+}
 
 class FolderSuggester extends SuggestModal<TFolder> {
 	folders: TFolder[];
@@ -402,6 +394,6 @@ class FolderSuggester extends SuggestModal<TFolder> {
 		this.onSelect(folder);
 	}
 
-	onSelect: (folder: TFolder) => void = () => {};
+	onSelect: (folder: TFolder) => void = () => { };
 }
 
