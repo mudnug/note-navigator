@@ -10,8 +10,8 @@ export class DeletionHelper {
 	private linkHelper: LinkHelper;
 
 	constructor(private app: App, private settings: NoteNavigatorSettings) {
-		this.fileHelper = new FileHelper(app);
-		this.linkHelper = new LinkHelper(app);
+		this.fileHelper = new FileHelper(app, settings);
+		this.linkHelper = new LinkHelper(app, settings);
 	}
 
 	async prepareForDeletion(activeFile: TFile): Promise<[TFile[], Set<TFolder>]> {
@@ -65,7 +65,7 @@ export class DeletionHelper {
 			await this.deletePerSetting(fileOrFolder);
 		} catch (error) {
 			console.error(`Error deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}:`, error);
-			new Notice(`An error occurred while deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}. Check the console for details.`);
+			new Notice(`An error occurred while deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}.`);
 		}
 	}
 

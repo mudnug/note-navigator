@@ -15,6 +15,7 @@ export interface NoteNavigatorSettings {
 	removeOrphanAttachments: boolean;
 	showConfirmationPrompt: boolean;
 	showDeleteNotice: boolean;
+	enableDebugLogging: boolean;
 }
 
 export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
 	removeOrphanAttachments: true,
 	showConfirmationPrompt: true,
 	showDeleteNotice: true,
+	enableDebugLogging: false,
 }
 
 export class NoteNavigatorSettingTab extends PluginSettingTab {
@@ -129,6 +131,16 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showDeleteNotice)
 				.onChange(async (value) => {
 					this.plugin.settings.showDeleteNotice = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Enable debug logging')
+			.setDesc('Enable verbose console logging for debugging purposes. Keep disabled in production.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableDebugLogging)
+				.onChange(async (value) => {
+					this.plugin.settings.enableDebugLogging = value;
 					await this.plugin.saveSettings();
 				}));
 

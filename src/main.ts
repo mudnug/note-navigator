@@ -9,11 +9,14 @@ export default class NoteNavigator extends Plugin {
 	settings: NoteNavigatorSettings;
 	private deletionHelper: DeletionHelper;
 	private fileHelper: FileHelper;
+	private dialogObserver: MutationObserver | null = null;
+	private renameTimeout: NodeJS.Timeout | null = null;
+	private dialogWaitTimeout: NodeJS.Timeout | null = null;
 
 	async onload() {
 		await this.loadSettings();
 
-		this.fileHelper = new FileHelper(this.app);
+		this.fileHelper = new FileHelper(this.app, this.settings);
 		this.deletionHelper = new DeletionHelper(this.app, this.settings);
 
 		this.registerCommands();
@@ -25,7 +28,7 @@ export default class NoteNavigator extends Plugin {
 			const data = await this.loadData();
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 		} catch (error) {
-			console.error('Error loading settings:', error);
+			new Notice('Error loading Note Navigator settings. Using defaults.');
 		}
 	}
 	
@@ -33,11 +36,23 @@ export default class NoteNavigator extends Plugin {
 		try {
 			await this.saveData(this.settings);
 		} catch (error) {
-			console.error("Issue persisting save:", error);
+			new Notice('Error saving Note Navigator settings.');
 		}
 	}
 
-	onunload() { }
+	onunload() {
+		if (this.dialogObserver) {
+			this.dialogObserver.disconnect();
+		}
+
+		if (this.renameTimeout) {
+			clearTimeout(this.renameTimeout);
+		}
+
+		if (this.dialogWaitTimeout) {
+			clearTimeout(this.dialogWaitTimeout);
+		}
+	}
 
 	private registerCommands() {
 		const commands = [
@@ -57,7 +72,11 @@ export default class NoteNavigator extends Plugin {
 				checkCallback: (checking: boolean) => {
 					const activeFile = this.app.workspace.getActiveFile();
 					if (activeFile) {
-						if (!checking) this.navigateFile("next");
+						if (!checking) {
+							this.navigateFile("next").catch(error => {
+								new Notice(`Error navigating to next file: ${error.message || error}`);
+							});
+						}
 						return true;
 					}
 					return false;
@@ -69,7 +88,11 @@ export default class NoteNavigator extends Plugin {
 				checkCallback: (checking: boolean) => {
 					const activeFile = this.app.workspace.getActiveFile();
 					if (activeFile) {
-						if (!checking) this.navigateFile("prev");
+						if (!checking) {
+							this.navigateFile("prev").catch(error => {
+								new Notice(`Error navigating to previous file: ${error.message || error}`);
+							});
+						}
 						return true;
 					}
 					return false;
@@ -155,7 +178,11 @@ export default class NoteNavigator extends Plugin {
 			}
 
 			if (this.settings.navigateOnDelete) {
-				this.navigateFile("next");
+				try {
+					await this.navigateFile("next");
+				} catch (error) {
+					new Notice(`Error navigating after deletion: ${error.message || error}`);
+				}
 			}
 
 			// apply a delay before deleting the file to avoid 'tab is busy' notification
@@ -166,15 +193,18 @@ export default class NoteNavigator extends Plugin {
 			this.settings.numberOfDeletedFolders += orphanedFolders.size;
 			await this.saveSettings();
 		} catch (error) {
-			console.error('Error while navigating or deleting:', error);
 			new Notice('An error occurred while navigating or deleting the file.');
 		}
 	}
 
 	private async navigateFile(direction: "next" | "prev") {
-		this.settings.numberOfFilesNavigated++;
-		await this.saveSettings();
-		this.fileHelper.navigateFile(direction, this.settings.navigationScope);
+		try {
+			this.settings.numberOfFilesNavigated++;
+			await this.saveSettings();
+			await this.fileHelper.navigateFile(direction, this.settings.navigationScope);
+		} catch (error) {
+			new Notice(`Error navigating to ${direction} file: ${error.message || error}`);
+		}
 	}
 
 	private async moveAndNavigate() {
@@ -210,7 +240,7 @@ export default class NoteNavigator extends Plugin {
 		const onRename = async (file: TAbstractFile, oldPath: string) => {
 			if (file === target) {
 				this.app.vault.off('rename', onRename);
-				if (dialogObserver) dialogObserver.disconnect();
+				if (this.dialogObserver) this.dialogObserver.disconnect();
 				const fileToOpen = this.app.vault.getAbstractFileByPath(nextFilePath);
 				if (fileToOpen && fileToOpen instanceof TFile) {
 					await this.app.workspace.getLeaf().openFile(fileToOpen);
@@ -221,7 +251,6 @@ export default class NoteNavigator extends Plugin {
 		};
 		this.registerEvent(this.app.vault.on('rename', onRename));
 
-		let dialogObserver: MutationObserver | null = null;
 		const waitForDialog = () => {
 			let dialog = document.querySelector('.modal.mod-rename-file');
 			if (!dialog) {
@@ -231,15 +260,23 @@ export default class NoteNavigator extends Plugin {
 				}) || null;
 			}
 			if (dialog && dialog.parentElement) {
-				dialogObserver = new MutationObserver(() => {
+				// Disconnect any existing observer before creating a new one
+				if (this.dialogObserver) {
+					this.dialogObserver.disconnect();
+				}
+				this.dialogObserver = new MutationObserver(() => {
 					if (!dialog || !dialog.parentElement || !dialog.parentElement.contains(dialog)) {
 						this.app.vault.off('rename', onRename);
-						if (dialogObserver) dialogObserver.disconnect();
+						if (this.dialogObserver) this.dialogObserver.disconnect();
 					}
 				});
-				dialogObserver.observe(dialog.parentElement, { childList: true });
+				this.dialogObserver.observe(dialog.parentElement, { childList: true });
 			} else {
-				setTimeout(waitForDialog, 50);
+				// Clear any existing timeout before setting a new one
+				if (this.dialogWaitTimeout) {
+					clearTimeout(this.dialogWaitTimeout);
+				}
+				this.dialogWaitTimeout = setTimeout(waitForDialog, 50);
 			}
 		};
 		waitForDialog();
@@ -255,10 +292,15 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 
+		if (!this.settings.enableDebugLogging) {
+			new Notice('Debug logging is disabled. Enable it in settings to see debug information.');
+			return;
+		}
+
 		// Output current sort order
 		const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
 		let sortOrder = "alphabetical"; // Default sort order
-		if (fileExplorerLeaf) {
+		if (fileExplorerLeaf && fileExplorerLeaf.view) {
 			const state = fileExplorerLeaf.view.getState();
 			sortOrder = typeof state.sortOrder === 'string' ? state.sortOrder : "alphabetical";
 		}
@@ -300,7 +342,11 @@ export default class NoteNavigator extends Plugin {
 		if (typeof this.app.fileManager?.promptForFileRename === "function") {
 			// @ts-ignore
 			this.app.fileManager.promptForFileRename(parentFolder);
-			setTimeout(() => {
+			// Clear any existing timeout before setting a new one
+			if (this.renameTimeout) {
+				clearTimeout(this.renameTimeout);
+			}
+			this.renameTimeout = setTimeout(() => {
 				const textarea: HTMLTextAreaElement | null =
 					document.querySelector('.rename-textarea');
 				if (textarea) {
@@ -331,7 +377,22 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 		const parentFolder = activeFile.parent as TFolder;
-		const allFolders = this.getAllFolders().filter(f => f !== parentFolder);
+
+		// Helper function to check if a folder is a descendant of the parent folder
+		const isDescendant = (folder: TFolder, parent: TFolder): boolean => {
+			let current: TFolder | null = folder.parent;
+			while (current) {
+				if (current === parent) {
+					return true;
+				}
+				current = current.parent;
+			}
+			return false;
+		};
+
+		const allFolders = this.getAllFolders().filter(f =>
+			f !== parentFolder && !isDescendant(f, parentFolder)
+		);
 
 		const modal = new FolderSuggester(this.app, allFolders);
 		modal.onSelect = async (destination: TFolder) => {

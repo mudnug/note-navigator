@@ -1,6 +1,7 @@
 import { TFile, TFolder, App, Notice } from 'obsidian';
 
 import { FileSorter } from './fileSorter';
+import { NoteNavigatorSettings } from './settings';
 
 export enum SortOrder {
 	AZ,
@@ -16,8 +17,8 @@ export type ObsidianSortOrder = 'alphabetical' | 'alphabeticalReverse' | 'byCrea
 export class FileHelper {
 	private fileSorter: FileSorter;
 
-	constructor(private app: App) {
-		this.fileSorter = new FileSorter(app);
+	constructor(private app: App, private settings: NoteNavigatorSettings) {
+		this.fileSorter = new FileSorter(app, settings);
 	}
 
 	isFolderEmptyAfterDeletion(folder: TFolder, filesToDelete: TFile[], foldersToDelete: Set<TFolder>): boolean {
@@ -52,7 +53,9 @@ export class FileHelper {
 	getAdjacentFile(currentFile: TFile, direction: "next" | "prev", scope: 'entireVault' | 'activeFolder'): TFile | null {
 		const originalFolder = currentFile.parent;
 		if (!originalFolder) {
-			console.warn("No parent folder found for the current file.");
+			if (this.settings.enableDebugLogging) {
+				console.warn("No parent folder found for the current file.");
+			}
 			return null;
 		}
 

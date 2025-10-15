@@ -1,7 +1,8 @@
 import { TFile, App } from 'obsidian';
+import { NoteNavigatorSettings } from './settings';
 
 export class LinkHelper {
-	constructor(private app: App) { }
+	constructor(private app: App, private settings: NoteNavigatorSettings) { }
 
 	collectLinksFromFile(file: TFile): Set<string> {
 		const { metadataCache } = this.app;
@@ -32,7 +33,9 @@ export class LinkHelper {
 			return decodedPath;
 		} catch (error) {
 			// Handle cases where the URI is malformed
-			console.info(`Note: Failed to decode path: ${encodedPath}. Returning the original path.`, error);
+			if (this.settings.enableDebugLogging) {
+				console.info(`Note: Failed to decode path: ${encodedPath}. Returning the original path.`, error);
+			}
 			return encodedPath;
 		}
 	}

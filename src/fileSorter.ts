@@ -1,16 +1,17 @@
 import { App, TFile } from 'obsidian';
 
 import { SortOrder, ObsidianSortOrder } from './fileHelper';
+import { NoteNavigatorSettings } from './settings';
 
 interface SortKey {
-  baseName: string;
-  extension: string;
-  numericPart: number;
-  typePriority: number;
+   baseName: string;
+   extension: string;
+   numericPart: number;
+   typePriority: number;
 }
 
 export class FileSorter {
-	constructor(private app: App) { }
+	constructor(private app: App, private settings: NoteNavigatorSettings) { }
 
 
 	customSort(files: TFile[], sortField: 'name' | 'modified' | 'created', sortOrder: 'ascending' | 'descending'): TFile[] {
@@ -32,7 +33,7 @@ export class FileSorter {
 		const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
 		let sortOrder: ObsidianSortOrder = "alphabetical"; // Default sort order incase a future Obsidian update breaks this code.
 
-		if (fileExplorerLeaf) {
+		if (fileExplorerLeaf && fileExplorerLeaf.view) {
 			const state = fileExplorerLeaf.view.getState();
 			const rawSortOrder = typeof state.sortOrder === 'string' ? state.sortOrder : "alphabetical";
 
@@ -40,7 +41,9 @@ export class FileSorter {
 				sortOrder = rawSortOrder;
 			}
 		} else {
-			console.warn("File explorer leaf not found. Using default sort order.");
+			if (this.settings.enableDebugLogging) {
+				console.warn("File explorer leaf or view not found. Using default sort order.");
+			}
 		}
 
 		// Map Obsidian sort order to our sort configuration
