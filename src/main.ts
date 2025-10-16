@@ -367,7 +367,7 @@ export default class NoteNavigator extends Plugin {
 	}
 
 	private getAllFolders(): TFolder[] {
-		return (this.app.vault as any).getAllFolders() as TFolder[];
+		return this.app.vault.getAllFolders();
 	}
 
 	private async moveParentFolderAndNavigate() {
@@ -407,7 +407,7 @@ export default class NoteNavigator extends Plugin {
 
 			const newPath = destination.path + '/' + parentFolder.name;
 			try {
-				await (this.app.fileManager as any).renameFile(parentFolder, newPath);
+				await this.app.fileManager.renameFile(parentFolder, newPath);
 				new Notice(`Successfully moved ${parentFolder.name} to ${destination.name}`, 2800);
 				// Reveal and select the moved folder
 				const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
