@@ -19,6 +19,7 @@ export interface NoteNavigatorSettings {
 }
 
 export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
+	enableDebugLogging: false,
 	navigateOnDelete: true,
 	navigationScope: 'entireVault',
 	numberOfDeletedAttachments: 0,
@@ -30,7 +31,6 @@ export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
 	removeOrphanAttachments: true,
 	showConfirmationPrompt: true,
 	showDeleteNotice: true,
-	enableDebugLogging: false,
 }
 
 export class NoteNavigatorSettingTab extends PluginSettingTab {

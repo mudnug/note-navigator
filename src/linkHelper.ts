@@ -1,4 +1,5 @@
 import { TFile, App } from 'obsidian';
+
 import { NoteNavigatorSettings } from './settings';
 
 export class LinkHelper {
