@@ -5,7 +5,7 @@
 
 The "Note Navigator" plugin simplifies note review by providing file navigation commands and deletion aids. It ensures a focused review process by automatically navigating to the next logical note after deletion, making it ideal for processing temporary notes, "read it later" articles, or any collection of notes requiring cleanup.
 
-I developed it to make navigation feel more natural after migrating from OneNote to Obsidian and it is helpful for navigating through notes made by the Obsidian Web Clipper. It may be useful for those with a folder hierarchy based set of notes (instead of heavily linked notes).
+I developed it to make navigation feel more natural after migrating from OneNote to [Obsidian](https://obsidian.md/) and it is helpful for navigating through notes made by the Obsidian Web Clipper. It may be useful for those with a folder hierarchy based set of notes (instead of heavily linked notes).
 
 ## Features
 
