@@ -29,16 +29,25 @@ export class DeletionHelper {
 	}
 
 	async handleAttachmentsAndFolders(attachments: TFile[], folders: Set<TFolder>) {
+		const deletedItems: string[] = [];
+
 		if (this.settings.removeOrphanAttachments) {
 			for (const attachment of attachments) {
-				await this.safeDelete(attachment, `Attachment deleted`, 0);
+				await this.deleteWithoutNotice(attachment);
+				deletedItems.push(`File: ${attachment.name}`);
 			}
 		}
 
 		if (this.settings.removeEmptyFolders) {
 			for (const folder of folders) {
-				await this.safeDelete(folder, `Empty folder deleted`, 0);
+				await this.deleteWithoutNotice(folder);
+				deletedItems.push(`Folder: ${folder.name}`);
 			}
+		}
+
+		// Show grouped notification if items were deleted
+		if (deletedItems.length > 0) {
+			this.showGroupedDeletionNotice(deletedItems);
 		}
 	}
 
@@ -67,24 +76,60 @@ export class DeletionHelper {
 		return new ConfirmationDialog(this.app, header, sections).show();
 	}
 
-	async safeDelete(fileOrFolder: TFile | TFolder, successMessage: string, delayMs: number) {
+	async safeDelete(fileOrFolder: TFile | TFolder, successMessage: string | null, delayMs: number) {
 		try {
 			if (delayMs > 0) {
 				await new Promise(resolve => setTimeout(resolve, delayMs)); // Awaitable delay
 			}
-			await this.deletePerSetting(fileOrFolder);
+			await this.performDelete(fileOrFolder, successMessage === null);
 		} catch (error) {
 			console.error(`Error deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}:`, error);
 			new Notice(`An error occurred while deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}.`);
 		}
 	}
 
-	private async deletePerSetting(fileOrFolder: TFile | TFolder) {
+	async deleteWithNotice(fileOrFolder: TFile | TFolder, customMessage?: string) {
+		await this.performDelete(fileOrFolder, false, customMessage);
+	}
+
+	async deleteWithoutNotice(fileOrFolder: TFile | TFolder) {
+		await this.performDelete(fileOrFolder, true);
+	}
+
+	private async performDelete(fileOrFolder: TFile | TFolder, skipNotice: boolean, customMessage?: string) {
 		await this.app.fileManager.trashFile(fileOrFolder);
 
-		if (this.settings.showDeleteNotice) {
-			new Notice(`Deleted ${fileOrFolder instanceof TFolder ? 'folder: ' : ': '}${fileOrFolder.name}`);
+		if (this.settings.showDeleteNotice && !skipNotice) {
+			const message = customMessage || `Deleted ${fileOrFolder instanceof TFolder ? 'folder: ' : ': '}${fileOrFolder.name}`;
+			new Notice(message);
 		}
+	}
+
+	private showGroupedDeletionNotice(deletedItems: string[]) {
+		if (!this.settings.showDeleteNotice) {
+			return;
+		}
+
+		const totalItems = deletedItems.length;
+		const filesCount = deletedItems.filter(item => item.startsWith('File:')).length;
+		const foldersCount = deletedItems.filter(item => item.startsWith('Folder:')).length;
+
+		let noticeMessage = `Deleted ${totalItems} item${totalItems > 1 ? 's' : ''}`;
+
+		if (filesCount > 0 && foldersCount > 0) {
+			noticeMessage += ` (${filesCount} file${filesCount > 1 ? 's' : ''}, ${foldersCount} folder${foldersCount > 1 ? 's' : ''})`;
+		} else if (filesCount > 0) {
+			noticeMessage += ` (${filesCount} file${filesCount > 1 ? 's' : ''})`;
+		} else if (foldersCount > 0) {
+			noticeMessage += ` (${foldersCount} folder${foldersCount > 1 ? 's' : ''})`;
+		}
+
+		const displayTimeMs = Math.min(3000 + (totalItems * 200), 10000); // Max 10 seconds
+
+		// Combine summary and detailed information into one notice
+		const combinedMessage = `${noticeMessage}\n${deletedItems.map(item => `• ${item}`).join('\n')}`;
+
+		new Notice(combinedMessage, displayTimeMs);
 	}
 
 	private async checkOrphanedFolder(folder: TFolder | null, filesToDelete: TFile[], orphanedFolders: Set<TFolder>) {
