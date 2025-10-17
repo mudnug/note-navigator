@@ -35,3 +35,12 @@ hr.note-navigator-moderate {
 .note-navigator-feedback-link {
 	text-decoration: underline;
 }
+
+.note-navigator-delete-depth-input.setting-input-invalid {
+	border-color: var(--interactive-error-color, #f44336) !important;
+	background-color: var(--background-modifier-error, rgba(244, 67, 54, 0.1)) !important;
+}
+
+.note-navigator-delete-depth-input {
+	transition: border-color 0.2s ease, background-color 0.2s ease;
+}

@@ -57,6 +57,16 @@ export class DeletionHelper {
 		return new ConfirmationDialog(this.app, header, sections).show();
 	}
 
+	async confirmDeletionForEmptyFolder(folder: TFolder): Promise<boolean> {
+		const header = `The folder "${folder.name}" is now empty after moving its contents. Delete it?`;
+
+		const sections = [
+			new ConfirmationSection('This folder will be deleted:', [folder.path])
+		];
+
+		return new ConfirmationDialog(this.app, header, sections).show();
+	}
+
 	async safeDelete(fileOrFolder: TFile | TFolder, successMessage: string, delayMs: number) {
 		try {
 			if (delayMs > 0) {
@@ -73,13 +83,31 @@ export class DeletionHelper {
 		await this.app.fileManager.trashFile(fileOrFolder);
 
 		if (this.settings.showDeleteNotice) {
-			new Notice(`Deleted: ${fileOrFolder.name}`);
+			new Notice(`Deleted ${fileOrFolder instanceof TFolder ? 'folder: ' : ': '}${fileOrFolder.name}`);
 		}
 	}
 
 	private async checkOrphanedFolder(folder: TFolder | null, filesToDelete: TFile[], orphanedFolders: Set<TFolder>) {
-		if (folder && await this.fileHelper.isFolderEmptyAfterDeletion(folder, filesToDelete, orphanedFolders)) {
+		if (!folder) {
+			return;
+		}
+
+		if (this.fileHelper.wouldFolderBeEmpty(folder, filesToDelete, orphanedFolders)) {
 			orphanedFolders.add(folder);
+
+			await this.checkOrphanedFolderWithDepth(folder.parent, filesToDelete, orphanedFolders, this.settings.maxDirectoryDeleteTraversal - 1);
+		}
+	}
+
+	private async checkOrphanedFolderWithDepth(folder: TFolder | null, filesToDelete: TFile[], orphanedFolders: Set<TFolder>, remainingDepth: number) {
+		if (!folder || remainingDepth <= 0) {
+			return;
+		}
+
+		if (this.fileHelper.wouldFolderBeEmpty(folder, filesToDelete, orphanedFolders)) {
+			orphanedFolders.add(folder);
+
+			await this.checkOrphanedFolderWithDepth(folder.parent, filesToDelete, orphanedFolders, remainingDepth - 1);
 		}
 	}
 }

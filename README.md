@@ -1,6 +1,17 @@
 # Note Navigator Plugin
 **Streamline your note review workflow with enhanced file navigation and deletion features.**
 
+## Table of Contents
+- [Purpose](#purpose)
+- [Features](#features)
+- [Installation](#how-to-install-the-plugin)
+- [Usage](#using-note-navigator-navigate-and-delete-command)
+- [Settings](#settings)
+- [Commands](#commands)
+- [Screenshots](#screenshots)
+- [Support and Contributing](#support-and-contributing)
+
+
 ## Purpose
 
 The "Note Navigator" plugin simplifies note review by providing file navigation commands and deletion aids. It ensures a focused review process by automatically navigating to the next logical note after deletion, making it ideal for processing temporary notes, "read it later" articles, or any collection of notes requiring cleanup.
@@ -30,14 +41,35 @@ I developed it to make navigation feel more natural after migrating from OneNote
 ### 6. Scroll Past End of Note
 - **Scroll past the end of the current note**: Scrolls to the end of the note and a bit further, useful when logging content to the tail of a long note.
 
+## Screenshots
+
+### Confirmation Dialog
+Shows the confirmation prompt before deleting a file with details about affected attachments and folders.
+
 ![Confirmation Dialog](img-conf-dialog.png)
+
+### Settings Panel
+Plugin settings showing navigation scope, deletion behavior, prompts, and statistics options.
+
+![Settings Panel](img-settings-dialog.png)
+
+### Hotkeys Configuration
+Command palette and hotkey assignment interface for Note Navigator commands.
+
+![Hotkeys Configuration](img-hotkeys-dialog.png)
 
 ## How to Install the Plugin
 
-1. **Download:** Obtain the plugin files (`main.js`, `manifest.json`, `styles.css`) from the plugin's GitHub repository or just install from the Obsidian community plugin store and skip steps 2 and 3 -- https://obsidian.md/plugins?search=note-navigator.
-2. **Create Plugin Folder:** Create a new folder in your Obsidian vault's plugins directory (e.g., `.obsidian/plugins/note-navigator`).
-3. **Place Files:** Copy the downloaded plugin files into the newly created folder.
-4. **Enable Plugin:** Open Obsidian (or reload Obsidian), go to "Settings" -> "Community plugins", and enable "Note Navigator".
+### Option 1: Community Plugin Store (Recommended)
+1. Open Obsidian and go to **Settings** → **Community plugins**
+2. Click **Browse** and search for "Note Navigator"
+3. Click **Install** and then **Enable**
+
+### Option 2: Manual Installation
+1. **Download:** Obtain the plugin files (`main.js`, `manifest.json`, `styles.css`) from the [GitHub repository](https://github.com/mudnug/note-navigator)
+2. **Create Plugin Folder:** Create a new folder in your Obsidian vault's plugins directory (e.g., `.obsidian/plugins/note-navigator`)
+3. **Place Files:** Copy the downloaded plugin files into the newly created folder
+4. **Enable Plugin:** Open Obsidian (or reload Obsidian), go to **Settings** → **Community plugins**, and enable **Note Navigator**
 
 ## Using Note Navigator "Navigate and Delete" Command
 
@@ -65,20 +97,32 @@ I developed it to make navigation feel more natural after migrating from OneNote
 - View counters for deleted files, folders, and attachments.
 - Reset counters with a single button.
 
-![Settings](img-settings-dialog.png)
-
 ## Commands
-The plugin provides the following commands:
-- **Delete current file and navigate to next note:** Deletes the active file and navigates to the next file.
-- **Navigate to next file:** Navigate to the next file in the current folder or vault.
-- **Navigate to previous file:** Navigate to the previous file in the current folder or vault.
-- **Move current file and navigate to next note:** Opens the move dialog for the current file, and automatically navigates to the next file in the chosen sort order and scope.
-- **Log debugging messages to console:** Outputs debugging information about sorting and deletion methods. Open the console to review these messages.
-- **Scroll past end of note:** Instantly scrolls to the end of the current note and a bit further.
-- **Rename parent folder of current note:** Opens a dialog to rename the parent folder of the currently active note.
 
-![Hotkeys](img-hotkeys-dialog.png)
+The plugin provides the following commands, accessible via the command palette or hotkeys:
+
+### File Operations
+- **Delete current file and navigate to next note** - Deletes the active file and navigates to the next file
+- **Move current file and navigate to next note** - Opens the move dialog for the current file, then navigates to the next file
+
+### Navigation
+- **Navigate to next file** - Navigate to the next file in the current folder or vault
+- **Navigate to previous file** - Navigate to the previous file in the current folder or vault
+- **Scroll past end of note** - Instantly scrolls to the end of the current note and a bit further (I found Ctrl+End in Obsidian won't scroll to the end of long documents.)
+
+### Utilities
+- **Rename parent folder of current note** - Opens a dialog to rename the parent folder of the currently active note
+- **Log debugging messages to console** - Outputs debugging information about sorting and deletion methods
+
 ---
 
-Note: The plugin's functionality is triggered only through its commands and does not override Obsidian's default delete behavior.
+## Support and Contributing
+
+If you encounter any issues or have suggestions for improvements, please:
+- Report bugs on the [GitHub Issues](https://github.com/mudnug/note-navigator/issues) page
+- Contribute code via [GitHub Pull Requests](https://github.com/mudnug/note-navigator/pulls)
+
+---
+
+**Note:** The plugin's functionality is triggered only through its commands and does not override Obsidian's default delete behavior.
 

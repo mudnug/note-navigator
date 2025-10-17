@@ -236,11 +236,17 @@ export default class NoteNavigator extends Plugin {
 		const target = getTarget();
 		const nextFilePath = getNextFilePath();
 		if (!target || !nextFilePath) return;
+		const originalParentFolder = (target as TFile).parent;
 
 		const onRename = async (file: TAbstractFile, oldPath: string) => {
 			if (file === target) {
 				this.app.vault.off('rename', onRename);
 				if (this.dialogObserver) this.dialogObserver.disconnect();
+
+				if (originalParentFolder) {
+					await this.checkAndCleanupEmptyParentFolder(originalParentFolder);
+				}
+
 				const fileToOpen = this.app.vault.getAbstractFileByPath(nextFilePath);
 				if (fileToOpen && fileToOpen instanceof TFile) {
 					await this.app.workspace.getLeaf().openFile(fileToOpen);
@@ -293,9 +299,15 @@ export default class NoteNavigator extends Plugin {
 		}
 
 		if (!this.settings.enableDebugLogging) {
-			new Notice('Debug logging is disabled. Enable it in settings to see debug information.');
-			return;
+			new Notice('Debug logging is disabled. Enable it in settings to see more debug information.');
+			console.log(`[Debug] Debug logging is disabled. Enable it in settings to see more debug information.`);
 		}
+
+		console.log(`[Debug] === Note Navigator Debug Information ===`);
+		console.log(`[Debug] Current file: ${activeFile.path}`);
+		console.log(`[Debug] Current folder: ${activeFile.parent.path}`);
+		console.log(`[Debug] Settings - removeEmptyFolders: ${this.settings.removeEmptyFolders}`);
+		console.log(`[Debug] Settings - parentDirectoryDepth: ${this.settings.maxDirectoryDeleteTraversal}`);
 
 		// Output current sort order
 		const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
@@ -304,7 +316,7 @@ export default class NoteNavigator extends Plugin {
 			const state = fileExplorerLeaf.view.getState();
 			sortOrder = typeof state.sortOrder === 'string' ? state.sortOrder : "alphabetical";
 		}
-		console.log(`Current sort order: ${sortOrder}`);
+		console.log(`[Debug] Current sort order: ${sortOrder}`);
 
 		// Output current file deletion method
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -314,13 +326,17 @@ export default class NoteNavigator extends Plugin {
 			"none": "Permanently delete",
 			"system": "Move to system trash",
 		}[deletionMethod] || "Unknown";
-		console.log(`Current file deletion method: ${friendlyDeletionMethod}`);
+		console.log(`[Debug] Current file deletion method: ${friendlyDeletionMethod}`);
 
 		// Log sorted files in the current folder
 		const folderFiles = activeFile.parent.children.filter((child): child is TFile => child instanceof TFile);
 		const sortedFiles = this.fileHelper.sortFiles(folderFiles);
-		console.log('Sorted files in the current folder:');
-		sortedFiles.forEach(file => console.log(file.path));
+		console.log('[Debug] Sorted files in the current folder:');
+		sortedFiles.forEach(file => console.log(`[Debug]   - ${file.path}`));
+
+		console.log(`[Debug] === End Debug Information ===`);
+
+		new Notice('Debug information logged to console. Check the developer console for details.');
 	}
 
 	private async renameParentFolder() {
@@ -366,8 +382,17 @@ export default class NoteNavigator extends Plugin {
 		}
 	}
 
-	private getAllFolders(): TFolder[] {
-		return this.app.vault.getAllFolders();
+	private async checkAndCleanupEmptyParentFolder(parentFolder: TFolder): Promise<void> {
+		if (this.settings.removeEmptyFolders && this.fileHelper.isFolderCurrentlyEmpty(parentFolder)) {
+			if (this.settings.showConfirmationPrompt) {
+				const confirmed = await this.deletionHelper.confirmDeletionForEmptyFolder(parentFolder);
+				if (!confirmed) return;
+			}
+
+			await this.deletionHelper.safeDelete(parentFolder, `Empty folder deleted after move`, 0);
+			this.settings.numberOfDeletedFolders++;
+			await this.saveSettings();
+		}
 	}
 
 	private async moveParentFolderAndNavigate() {
@@ -390,7 +415,30 @@ export default class NoteNavigator extends Plugin {
 			return false;
 		};
 
-		const allFolders = this.getAllFolders().filter(f =>
+		const getFoldersWithinDepth = (currentFolder: TFolder, maxDepth?: number): TFolder[] => {
+			const folders: TFolder[] = [];
+
+			// Add all child folders of current folder (but not the current folder itself)
+			if (currentFolder.children) {
+				for (const child of currentFolder.children) {
+					if (child instanceof TFolder && child !== currentFolder) {
+						// Don't add if it's a descendant of the parent folder (to avoid moving into itself)
+						if (!isDescendant(child, parentFolder)) {
+							folders.push(child);
+						}
+					}
+				}
+			}
+
+			// Also add the parent folder if we're not at root level and within depth limit
+			if (currentFolder.parent && currentFolder.parent !== currentFolder && (maxDepth === undefined || 1 <= maxDepth)) {
+				folders.push(currentFolder.parent);
+			}
+
+			return folders;
+		};
+
+		const allFolders = getFoldersWithinDepth(parentFolder, this.settings.maxDirectoryDeleteTraversal).filter(f =>
 			f !== parentFolder && !isDescendant(f, parentFolder)
 		);
 
@@ -409,6 +457,10 @@ export default class NoteNavigator extends Plugin {
 			try {
 				await this.app.fileManager.renameFile(parentFolder, newPath);
 				new Notice(`Successfully moved ${parentFolder.name} to ${destination.name}`, 2800);
+
+				// Check if the old parent folder is now empty and clean it up if needed
+				await this.checkAndCleanupEmptyParentFolder(parentFolder.parent as TFolder);
+
 				// Reveal and select the moved folder
 				const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
 				if (fileExplorerLeaf && fileExplorerLeaf.view) {

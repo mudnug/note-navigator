@@ -16,6 +16,7 @@ export interface NoteNavigatorSettings {
 	showConfirmationPrompt: boolean;
 	showDeleteNotice: boolean;
 	enableDebugLogging: boolean;
+	maxDirectoryDeleteTraversal: number;
 }
 
 export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
 	removeOrphanAttachments: true,
 	showConfirmationPrompt: true,
 	showDeleteNotice: true,
+	maxDirectoryDeleteTraversal: 3,
 }
 
 export class NoteNavigatorSettingTab extends PluginSettingTab {
@@ -89,17 +91,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 					this.plugin.settings.removeOrphanAttachments = value;
 					await this.plugin.saveSettings();
 				}));
-
-		new Setting(containerEl)
-			.setName('Remove empty folders')
-			.setDesc('Automatically delete folders that become empty after deleting notes or attachments.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.removeEmptyFolders)
-				.onChange(async (value) => {
-					this.plugin.settings.removeEmptyFolders = value;
-					await this.plugin.saveSettings();
-				}));
-
+				
 		new Setting(containerEl)
 			.setName('Auto-navigate after deletion')
 			.setDesc('Automatically navigate to the next file in sort order of the file-explorer after deletion. Disable to use Obsidian\'s default behavior.')
@@ -109,6 +101,68 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 					this.plugin.settings.navigateOnDelete = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Remove empty folders')
+			.setDesc('Automatically delete folders that become empty after deleting notes or attachments.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.removeEmptyFolders)
+				.onChange(async (value) => {
+					this.plugin.settings.removeEmptyFolders = value;
+					await this.plugin.saveSettings();
+					// Refresh the settings display to show/hide parent directory depth setting
+					this.display();
+				}));
+
+
+		// Only show parent directory depth setting when remove empty folders is enabled
+		if (this.plugin.settings.removeEmptyFolders) {
+			new Setting(containerEl)
+				.setName('Parent directory traversal depth')
+				.setDesc('Number of parent directories to traverse when looking for empty folders to delete (1-10).')
+				.addText(text => {
+					const textInput = text.inputEl;
+					textInput.type = 'number';
+					textInput.min = '1';
+					textInput.max = '10';
+					textInput.step = '1';
+					textInput.value = this.plugin.settings.maxDirectoryDeleteTraversal.toString();
+					textInput.addClass('note-navigator-delete-depth-input');
+
+					// Add validation styling
+					const validateInput = (value: string) => {
+						const numValue = parseInt(value);
+						if (numValue >= 1 && numValue <= 10) {
+							textInput.removeClass('setting-input-invalid');
+							return true;
+						} else {
+							textInput.addClass('setting-input-invalid');
+							return false;
+						}
+					};
+
+					text.setValue(this.plugin.settings.maxDirectoryDeleteTraversal.toString())
+						.onChange(async (value) => {
+							const numValue = parseInt(value);
+							if (validateInput(value) && numValue >= 1 && numValue <= 10) {
+								this.plugin.settings.maxDirectoryDeleteTraversal = numValue;
+								await this.plugin.saveSettings();
+							}
+						});
+
+					// Validate on blur to catch invalid values
+					textInput.addEventListener('blur', () => {
+						if (!validateInput(textInput.value)) {
+							// Reset to valid value if current value is invalid
+							const currentValue = parseInt(textInput.value);
+							if (isNaN(currentValue) || currentValue < 1 || currentValue > 10) {
+								textInput.value = this.plugin.settings.maxDirectoryDeleteTraversal.toString();
+								validateInput(textInput.value);
+							}
+						}
+					});
+				});
+		}
 
 		new Setting(containerEl)
 			.setName('Prompts')
@@ -136,7 +190,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Enable debug logging')
-			.setDesc('Enable verbose console logging for debugging purposes. Keep disabled in production.')
+			.setDesc('Enable verbose console logging for debugging purposes.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableDebugLogging)
 				.onChange(async (value) => {

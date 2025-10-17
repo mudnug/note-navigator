@@ -21,14 +21,70 @@ export class FileHelper {
 		this.fileSorter = new FileSorter(app, settings);
 	}
 
-	isFolderEmptyAfterDeletion(folder: TFolder, filesToDelete: TFile[], foldersToDelete: Set<TFolder>): boolean {
+	isFolderEmptyAfterDeletion(folder: TFolder, filesToDelete: TFile[], foldersToDelete: Set<TFolder>, maxDepth?: number): boolean {
+		if (!this.wouldFolderBeEmpty(folder, filesToDelete, foldersToDelete)) {
+			return false;
+		}
+
+		if (maxDepth === undefined || maxDepth <= 0) {
+			return true;
+		}
+
+		let currentFolder: TFolder | null = folder.parent;
+		let currentDepth = 0;
+
+		while (currentFolder && currentDepth < maxDepth) {
+			// Temporarily add the child folder to check if parent would be empty
+			foldersToDelete.add(folder);
+
+			if (!this.wouldFolderBeEmpty(currentFolder, filesToDelete, foldersToDelete)) {
+				// Parent would not be empty, so remove the folder we temporarily added
+				foldersToDelete.delete(folder);
+				return false;
+			}
+
+			currentFolder = currentFolder.parent;
+			currentDepth++;
+		}
+
+		return true;
+	}
+
+	isFolderCurrentlyEmpty(folder: TFolder): boolean {
+		const children = folder.children;
+
+		const hasFiles = children.some(child => child instanceof TFile);
+		if (hasFiles) {
+			return false;
+		}
+
+		const hasFolders = children.some(child => child instanceof TFolder);
+		if (hasFolders) {
+			return false;
+		}
+
+		return true;
+	}
+
+	wouldFolderBeEmpty(folder: TFolder, filesToDelete: TFile[], foldersToDelete: Set<TFolder>): boolean {
 		const children = folder.children;
 		const folderFiles = children.filter(child => child instanceof TFile);
 
 		const remainingFiles = folderFiles.filter(file => !filesToDelete.some(f => f.path === file.path));
-		const hasNoSubfolders = children.every(child => !(child instanceof TFolder) || foldersToDelete.has(child));
 
-		return remainingFiles.length === 0 && hasNoSubfolders;
+		if (remainingFiles.length > 0) {
+			return false;
+		}
+
+		const remainingFolders = children.filter(child =>
+			child instanceof TFolder && !foldersToDelete.has(child)
+		);
+
+		if (remainingFolders.length > 0) {
+			return false;
+		}
+
+		return true;
 	}
 
 	async navigateFile(direction: "next" | "prev", scope: 'entireVault' | 'activeFolder'): Promise<void> {
