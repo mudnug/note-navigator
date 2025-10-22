@@ -1,6 +1,6 @@
 {
 	"name": "note-navigator",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"description": "Deleting a file was distracting, now you continue to the next note",
 	"main": "main.js",
 	"scripts": {
