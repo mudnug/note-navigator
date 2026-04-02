@@ -60,7 +60,10 @@ Command palette and hotkey assignment interface for Note Navigator commands.
 
 ## How to Install the Plugin
 
-### Option 1: Community Plugin Store (Recommended)
+### Option 1: Community Plugin Store
+
+[![Open in Obsidian](https://custom-icon-badges.demolab.com/badge/-Open%20In%20Obsidian-d4d4d4?style=for-the-badge&logo=obsidian-full)](obsidian://show-plugin?id=note-navigator)
+
 1. Open Obsidian and go to **Settings** → **Community plugins**
 2. Click **Browse** and search for "Note Navigator"
 3. Click **Install** and then **Enable**
