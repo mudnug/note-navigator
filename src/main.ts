@@ -1,4 +1,8 @@
-import { Notice, Plugin, TFile, App, Editor, TFolder, SuggestModal, TAbstractFile } from 'obsidian';
+import { Notice, Plugin, TFile, App, Editor, TFolder, SuggestModal, TAbstractFile, Vault, EventRef } from 'obsidian';
+
+export type WorkspaceWithConfigChange = App['workspace'] & {
+	on(name: 'config-change', callback: () => void): EventRef;
+};
 
 import { DeletionHelper } from './deletionHelper';
 import { FileHelper } from './fileHelper';
@@ -12,6 +16,9 @@ export default class NoteNavigator extends Plugin {
 	private dialogObserver: MutationObserver | null = null;
 	private renameTimeout: NodeJS.Timeout | null = null;
 	private dialogWaitTimeout: NodeJS.Timeout | null = null;
+	private lastAttachmentPath: string | null = null;
+	private configChangeListenerRegistered = false;
+
 
 	async onload() {
 		await this.loadSettings();
@@ -21,6 +28,14 @@ export default class NoteNavigator extends Plugin {
 
 		this.registerCommands();
 		this.addSettingTab(new NoteNavigatorSettingTab(this.app, this));
+		this.updateAttachmentFolderFade();
+
+		if (!this.configChangeListenerRegistered) {
+			this.configChangeListenerRegistered = true;
+			this.registerEvent((this.app.workspace as WorkspaceWithConfigChange).on('config-change', () => {
+				this.updateAttachmentFolderFade();
+			}));
+		}
 	}
 
 	async loadSettings() {
@@ -40,6 +55,39 @@ export default class NoteNavigator extends Plugin {
 		}
 	}
 
+	updateAttachmentFolderFade() {
+		try {
+			const existing = document.getElementById('note-navigator-fade-attachment');
+
+			if (!this.settings.fadeAttachmentFolders) {
+				if (existing) existing.remove();
+				this.lastAttachmentPath = null;
+				return;
+			}
+
+			const attachmentPath = this.getAttachmentFolderPath();
+			if (!attachmentPath || attachmentPath === "." || attachmentPath === "./") {
+				if (existing) existing.remove();
+				this.lastAttachmentPath = null;
+				return;
+			}
+
+			if (attachmentPath === this.lastAttachmentPath && existing) return;
+
+			if (existing) existing.remove();
+
+			const pathSegments = attachmentPath.split('/');
+			const folderName = pathSegments[pathSegments.length - 1];
+			const style = document.createElement('style');
+			style.id = 'note-navigator-fade-attachment';
+			style.textContent = `.nav-folder:has(> .nav-folder-title[data-path$="${CSS.escape(folderName)}"]) { opacity: var(--note-navigator-fade-opacity); }`;
+			document.head.appendChild(style);
+			this.lastAttachmentPath = attachmentPath;
+		} catch (error) {
+			console.error('[Note Navigator] Failed to update attachment folder fade:', error);
+		}
+	}
+
 	onunload() {
 		if (this.dialogObserver) {
 			this.dialogObserver.disconnect();
@@ -52,6 +100,22 @@ export default class NoteNavigator extends Plugin {
 		if (this.dialogWaitTimeout) {
 			clearTimeout(this.dialogWaitTimeout);
 		}
+
+		try {
+			const fadeStyle = document.getElementById('note-navigator-fade-attachment');
+			if (fadeStyle) fadeStyle.remove();
+		} catch (error) {
+			console.error('[Note Navigator] Failed to cleanup attachment folder fade:', error);
+		}
+	}
+
+	private getVaultConfig(key: string): unknown {
+		return (this.app.vault as Vault & { getConfig: (key: string) => unknown }).getConfig(key);
+	}
+
+	private getAttachmentFolderPath(): string {
+		const configValue = this.getVaultConfig("attachmentFolderPath");
+		return typeof configValue === "string" ? configValue : "";
 	}
 
 	private registerCommands() {
@@ -109,8 +173,8 @@ export default class NoteNavigator extends Plugin {
 					}
 					return false;
 				},
-				id: 'navigate-debug-sorting',
-				name: 'Log debugging messages to console',
+				id: 'log-debugging-messages',
+				name: 'Log messages to console (debug)',
 			},
 			{
 				editorCallback: (editor: Editor) => {
@@ -300,14 +364,14 @@ export default class NoteNavigator extends Plugin {
 
 		if (!this.settings.enableDebugLogging) {
 			new Notice('Debug logging is disabled. Enable it in settings to see more debug information.');
-			console.log(`[Debug] Debug logging is disabled. Enable it in settings to see more debug information.`);
+			console.log(`Debug logging is disabled. Enable it in settings to see more debug information.`);
 		}
 
-		console.log(`[Debug] === Note Navigator Debug Information ===`);
-		console.log(`[Debug] Current file: ${activeFile.path}`);
-		console.log(`[Debug] Current folder: ${activeFile.parent.path}`);
-		console.log(`[Debug] Settings - removeEmptyFolders: ${this.settings.removeEmptyFolders}`);
-		console.log(`[Debug] Settings - parentDirectoryDepth: ${this.settings.maxDirectoryDeleteTraversal}`);
+		console.group('Note Navigator Debug Information');
+		console.log(`Current file: ${activeFile.path}`);
+		console.log(`Current folder: ${activeFile.parent.path}`);
+		console.log(`Settings - removeEmptyFolders: ${this.settings.removeEmptyFolders}`);
+		console.log(`Settings - parentDirectoryDepth: ${this.settings.maxDirectoryDeleteTraversal}`);
 
 		// Output current sort order
 		const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
@@ -316,25 +380,25 @@ export default class NoteNavigator extends Plugin {
 			const state = fileExplorerLeaf.view.getState();
 			sortOrder = typeof state.sortOrder === 'string' ? state.sortOrder : "alphabetical";
 		}
-		console.log(`[Debug] Current sort order: ${sortOrder}`);
+		console.log(`Current sort order: ${sortOrder}`);
 
 		// Output current file deletion method
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const deletionMethod = (this.app.vault as any).getConfig("trashOption") as "local" | "system" | "none";
-		const friendlyDeletionMethod = {
+		const deletionMethod = this.getVaultConfig("trashOption");
+		const friendlyDeletionMethod: Record<string, string> = {
 			"local": "Move to obsidian trash (.trash folder)",
 			"none": "Permanently delete",
 			"system": "Move to system trash",
-		}[deletionMethod] || "Unknown";
-		console.log(`[Debug] Current file deletion method: ${friendlyDeletionMethod}`);
+		};
+		const methodLabel = friendlyDeletionMethod[deletionMethod as string] || "Unknown";
+		console.log(`Current file deletion method: ${methodLabel}`);
 
 		// Log sorted files in the current folder
 		const folderFiles = activeFile.parent.children.filter((child): child is TFile => child instanceof TFile);
 		const sortedFiles = this.fileHelper.sortFiles(folderFiles);
-		console.log('[Debug] Sorted files in the current folder:');
-		sortedFiles.forEach(file => console.log(`[Debug]   - ${file.path}`));
+		console.log('Sorted files in the current folder:');
+		sortedFiles.forEach(file => console.log(`  - ${file.path}`));
 
-		console.log(`[Debug] === End Debug Information ===`);
+		console.groupEnd();
 
 		new Notice('Debug information logged to console. Check the developer console for details.');
 	}

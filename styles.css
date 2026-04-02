@@ -44,3 +44,7 @@ hr.note-navigator-moderate {
 .note-navigator-delete-depth-input {
 	transition: border-color 0.2s ease, background-color 0.2s ease;
 }
+
+:root {
+	--note-navigator-fade-opacity: 0.4;
+}

@@ -25,3 +25,7 @@ data.json
 *.ps1
 
 data.json
+
+# Windows NUL device file
+NUL
+tsconfig.tsbuildinfo
