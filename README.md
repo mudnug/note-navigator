@@ -30,6 +30,7 @@ I developed it to make navigation feel more natural after migrating from OneNote
 ### 3. Attachment and Folder Management
 - Automatically delete **orphaned attachments** (attachments no longer referenced by any note).
 - Remove **empty folders** after deleting notes or attachments.
+- **Fade attachment folders** to make them less noticeable in the file explorer.
 
 ### 4. Prompts and Notifications
 - Optional **Confirmation prompt** before deleting files, with details on affected attachments and folders.
@@ -87,6 +88,9 @@ Command palette and hotkey assignment interface for Note Navigator commands.
 
 ### Navigation
 - **Navigation Scope:** Choose between navigating within the **entire vault** or the **active folder**.
+
+### File Explorer
+- **Fade attachment folders:** Make attachment folders less noticeable in the file explorer.
 
 ### Deletion Behavior
 - **Remove Orphan Attachments:** Toggle automatic deletion of unused attachments.
