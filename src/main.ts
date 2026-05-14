@@ -43,7 +43,7 @@ export default class NoteNavigator extends Plugin {
 			const data: unknown = await this.loadData();
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, data as Partial<NoteNavigatorSettings>);
 		} catch {
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Note Navigator" is the proper name of the plugin and must retain its capitalization
 			new Notice('Error loading Note Navigator plugin settings. Using defaults.');
 		}
 	}
@@ -52,7 +52,7 @@ export default class NoteNavigator extends Plugin {
 		try {
 			await this.saveData(this.settings);
 		} catch {
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Note Navigator" is the proper name of the plugin and must retain its capitalization
 			new Notice('Error saving Note Navigator plugin settings.');
 		}
 	}
