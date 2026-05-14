@@ -59,7 +59,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		this.plugin.settings.numberOfSettingViews = (this.plugin.settings.numberOfSettingViews || 0) + 1;
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 
 		containerEl.empty();
 
@@ -82,7 +82,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName('File Explorer')
+			.setName('File explorer')
 			.setHeading();
 
 		new Setting(containerEl)
@@ -275,6 +275,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			feedbackLink.addClass('note-navigator-feedback-link');
 			feedbackParagraph.append(feedbackLink, ", or ");
 
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			const supportLink = containerEl.createEl('a', { href: 'https://buymeacoffee.com/softwarefriend', text: 'support the developer' });
 			supportLink.setAttr('target', '_blank');
 			supportLink.addClass('custom-support-link');
@@ -296,23 +297,18 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			button.setButtonText('Configure hotkeys')
 				.setIcon('plus-circle')
 				.onClick(() => {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					const settingsTab = (this.app as any).setting;
-					const tab = settingsTab.openTabById('hotkeys');
-					if (
-						typeof tab === 'object' &&
-						tab !== null &&
-						'setQuery' in tab &&
-						typeof (tab as { setQuery: unknown }).setQuery === 'function'
-					) {
-						(tab as { setQuery: (query: string) => void }).setQuery(this.plugin.manifest.id);
+					// Access internal Obsidian API to open hotkey settings
+					const setting = (this.app as unknown as { setting: unknown }).setting;
+					const tab = (setting as { openTabById?: (id: string) => { setQuery?: (q: string) => void } | undefined }).openTabById?.('hotkeys');
+					if (typeof tab?.setQuery === 'function') {
+						tab.setQuery(this.plugin.manifest.id);
 					}
 				});
 		});
 	}
 
 	private resetStatistics(stats: Record<string, number>): void {
-		(Object.keys(stats) as (keyof typeof stats)[]).forEach(key => {
+		Object.keys(stats).forEach(key => {
 			this.plugin.settings[key as keyof NoteNavigatorSettings] = 0 as never;
 		});
 	}

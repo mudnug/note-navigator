@@ -36,7 +36,7 @@ export class FileSorter {
             'byCreatedTimeReverse', 'byModifiedTime', 'byModifiedTimeReverse'
         ];
 
-        const finalSortOrder = validSortOrders.includes(sortOrder as ObsidianSortOrder) ? sortOrder : "alphabetical";
+        const finalSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : "alphabetical";
 
         if (finalSortOrder !== sortOrder && this.settings.enableDebugLogging) {
             console.warn("Invalid sort order found. Using default alphabetical sort.");

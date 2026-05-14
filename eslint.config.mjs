@@ -1,56 +1,31 @@
-import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import globals from "globals";
-import tsParser from "@typescript-eslint/parser";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig } from "eslint/config";
+import obsidianmd from "eslint-plugin-obsidianmd";
 import perfectionist from "eslint-plugin-perfectionist";
+import tsparser from "@typescript-eslint/parser";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
-});
-
-export default [{
-    ignores: ["**/node_modules/", "**/main.js"],
-}, ...compat.extends(
-    "eslint:recommended",
-    "plugin:@typescript-eslint/eslint-recommended",
-    "plugin:@typescript-eslint/recommended",
-), {
+export default defineConfig([
+  ...obsidianmd.configs.recommended,
+  {
+    files: ["**/*.ts"],
     plugins: {
-        "@typescript-eslint": typescriptEslint,
-		perfectionist, // Add the perfectionist plugin
+      perfectionist,
     },
-
     languageOptions: {
-        globals: {
-            ...globals.node,
-        },
-
-        parser: tsParser,
-        ecmaVersion: 5,
-        sourceType: "module",
+      parser: tsparser,
+      parserOptions: { project: "./tsconfig.json" },
     },
-
     rules: {
-        "no-unused-vars": "off",
+      // Disable specific @typescript-eslint rules
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-empty-function": "off",
+      "no-prototype-builtins": "off",
 
-        "@typescript-eslint/no-unused-vars": ["error", {
-            args: "none",
-        }],
+      // Enable TypeScript member ordering
+      "@typescript-eslint/member-ordering": "error",
 
-        "@typescript-eslint/ban-ts-comment": "off",
-        "no-prototype-builtins": "off",
-        "@typescript-eslint/no-empty-function": "off",
-		'perfectionist/sort-objects': ['error', {
-			type: 'alphabetical',
-		  }],
-		"perfectionist/sort-imports": "error",
-		"@typescript-eslint/member-ordering": "error"
+      // Perfectionist sorting rules
+      "perfectionist/sort-imports": "error",
+      "perfectionist/sort-objects": ["error", { type: "alphabetical" }],
     },
-}];
+  },
+]);
