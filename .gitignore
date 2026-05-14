@@ -26,6 +26,9 @@ data.json
 
 data.json
 
+# Kilo/Agent Manager
+.kilo
+
 # Windows NUL device file
 NUL
 tsconfig.tsbuildinfo
