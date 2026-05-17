@@ -211,6 +211,16 @@ export class FileHelper {
 			}
 		}
 
+		// Wraparound for files in subfolders of root when we've traversed up
+		if (direction === "next" && currentFolder?.parent == null && currentFolder) {
+			const rootFiles = this.sortFiles(
+				currentFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
+			);
+			if (rootFiles.length > 0) {
+				return rootFiles[0];
+			}
+		}
+
 		return null;
 	}
 
@@ -289,6 +299,11 @@ export class FileHelper {
 		}
 
 		// Handle "next" direction by returning siblings of the current folder
-		return currentFolder.parent ? getChildFolders(currentFolder.parent) : null;
+		// If at root level (no parent), return child folders to enable wraparound traversal,
+		// mirroring the "prev" behavior
+		if (!currentFolder.parent) {
+			return getChildFolders(currentFolder);
+		}
+		return getChildFolders(currentFolder.parent);
 	}
 }
