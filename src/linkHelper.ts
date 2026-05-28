@@ -35,7 +35,7 @@ export class LinkHelper {
 		} catch (error) {
 			// Handle cases where the URI is malformed
 			if (this.settings.enableDebugLogging) {
-				console.info(`Note: Failed to decode path: ${encodedPath}. Returning the original path.`, error);
+				console.warn(`Note: Failed to decode path: ${encodedPath}. Returning the original path. It is unclear whether some attachments will be left orphaned.`, error);
 			}
 			return encodedPath;
 		}

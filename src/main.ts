@@ -361,6 +361,7 @@ export default class NoteNavigator extends Plugin {
 		(this.app as App & { commands?: { executeCommandById?: (id: string) => void } }).commands?.executeCommandById?.(moveCommandId);
 	}
 
+	/* eslint-disable obsidianmd/rule-custom-message */
 	private outputDebugMessages() {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile || !activeFile.parent) {
