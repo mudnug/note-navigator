@@ -2,6 +2,7 @@ import { App } from 'obsidian';
 import { PluginSettingTab, Setting } from 'obsidian';
 
 import NoteNavigator, { type WorkspaceWithConfigChange } from './main';
+import { StatsKey, type StatisticsStorageMode } from './statisticsStorage';
 
 export interface NoteNavigatorSettings {
 	navigateOnDelete: boolean;
@@ -18,6 +19,7 @@ export interface NoteNavigatorSettings {
 	enableDebugLogging: boolean;
 	fadeAttachmentFolders: boolean;
 	maxDirectoryDeleteTraversal: number;
+	statisticsStorageMode: StatisticsStorageMode;
 }
 
 export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
 	removeOrphanAttachments: true,
 	showConfirmationPrompt: true,
 	showDeleteNotice: true,
+	statisticsStorageMode: 'pluginStorage',
 }
 
 export class NoteNavigatorSettingTab extends PluginSettingTab {
@@ -56,10 +59,27 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const { containerEl } = this;
+		void this.displayAsync();
+	}
 
-		this.plugin.settings.numberOfSettingViews = (this.plugin.settings.numberOfSettingViews || 0) + 1;
+	refresh(): void {
+		this.render();
+	}
+
+	private async displayAsync(): Promise<void> {
+		await this.plugin.loadSettings();
+		this.plugin.statisticsStorage.setMode(this.plugin.settings.statisticsStorageMode, false);
+		this.incrementSettingViews();
+		this.render();
+	}
+
+	private incrementSettingViews(): void {
+		this.plugin.statisticsStorage.increment(StatsKey.SettingViews);
 		void this.plugin.saveSettings();
+	}
+
+	private render(): void {
+		const { containerEl } = this;
 
 		containerEl.empty();
 
@@ -137,8 +157,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.removeEmptyFolders = value;
 					await this.plugin.saveSettings();
-					// Refresh the settings display to show/hide parent directory depth setting
-					this.display();
+					this.refresh();
 				}));
 
 
@@ -225,22 +244,11 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		const stats = {
-			numberOfDeletedAttachments: this.plugin.settings.numberOfDeletedAttachments,
-			numberOfDeletedFiles: this.plugin.settings.numberOfDeletedFiles,
-			numberOfDeletedFolders: this.plugin.settings.numberOfDeletedFolders,
-			numberOfFilesNavigated: this.plugin.settings.numberOfFilesNavigated,
-			numberOfSettingViews: this.plugin.settings.numberOfSettingViews,
-		};
-
-		const statsVisible = Object.values(stats).some(stat => stat >= 10);
+		const stats = this.plugin.statisticsStorage.getAll();
 		const experiencedUser = Object.values(stats).some(stat => stat > 100);
 
-		if (statsVisible) {
-			this.addStatisticsSection(containerEl, stats, experiencedUser);
-		} else {
-			this.addWelcomeSection(containerEl);
-		}
+		this.addWelcomeSection(containerEl);
+		this.addStatisticsSection(containerEl, stats, experiencedUser);
 	}
 
 	private addStatisticsSection(containerEl: HTMLElement, stats: Record<string, number>, experiencedUser: boolean): void {
@@ -249,14 +257,29 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
+			.setName('Storage mode')
+			.setDesc('Choose where statistics are stored.')
+			.addDropdown(dropdown => {
+				dropdown
+					.addOption('pluginStorage', 'Sync across devices (plugin storage)')
+					.addOption('browserStorage', 'This device only (browser storage)')
+					.setValue(this.plugin.statisticsStorage.getMode())
+					.onChange(async (value) => {
+						this.plugin.statisticsStorage.setMode(value as StatisticsStorageMode);
+						this.plugin.settings.statisticsStorageMode = value as StatisticsStorageMode;
+						await this.plugin.saveSettings();
+						this.refresh();
+					});
+			});
+
+		new Setting(containerEl)
 			.setName('Reset statistics')
 			.setDesc('Reset all counters for deleted files, folders, and navigations.')
 			.addButton(button => button
 				.setButtonText('Reset')
 				.onClick(async () => {
-					this.resetStatistics(stats);
-					await this.plugin.saveSettings();
-					this.display();
+					this.plugin.statisticsStorage.reset();
+					this.refresh();
 				}));
 
 		const statsList = containerEl.createEl('ul', { cls: 'note-navigator-stats-list' });
@@ -290,7 +313,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		const welcomeSetting = new Setting(containerEl)
-			.setDesc('Assign hotkeys to the plugin commands for easier use.');
+			.setDesc('Assign hotkeys to the plugin commands for easier use:');
 		welcomeSetting.descEl.addClass('note-navigator-welcome-message');
 
 		welcomeSetting.addButton(button => {
@@ -304,12 +327,6 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 						tab.setQuery(this.plugin.manifest.id);
 					}
 				});
-		});
-	}
-
-	private resetStatistics(stats: Record<string, number>): void {
-		Object.keys(stats).forEach(key => {
-			this.plugin.settings[key as keyof NoteNavigatorSettings] = 0 as never;
 		});
 	}
 }

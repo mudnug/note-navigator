@@ -101,6 +101,10 @@ Command palette and hotkey assignment interface for Note Navigator commands.
 - View counters for deleted files, folders, and attachments.
 - Reset counters with a single button.
 
+#### Statistics storage modes
+- **Sync across devices (plugin storage):** Stores counters in the plugin's settings so they will be included when you sync your vault (e.g., via Obsidian Sync or other vault-syncing solutions).
+- **Local device only (browser storage):** Stores counters in the browser/localStorage for the current device only; these values are not synced across devices.
+
 ## Commands
 
 The plugin provides the following commands, accessible via the command palette or hotkeys:

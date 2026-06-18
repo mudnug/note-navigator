@@ -8,9 +8,11 @@ import { DeletionHelper } from './deletionHelper';
 import { FileHelper } from './fileHelper';
 import { scrollToEndAndBeyond } from './scrollHelper';
 import { DEFAULT_SETTINGS, NoteNavigatorSettings, NoteNavigatorSettingTab } from './settings';
+import { StatisticsStorage, StatsKey } from './statisticsStorage';
 
 export default class NoteNavigator extends Plugin {
 	settings: NoteNavigatorSettings;
+	statisticsStorage: StatisticsStorage;
 	private deletionHelper: DeletionHelper;
 	private fileHelper: FileHelper;
 	private dialogObserver: MutationObserver | null = null;
@@ -23,6 +25,7 @@ export default class NoteNavigator extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		this.statisticsStorage = new StatisticsStorage(this, this.settings.statisticsStorageMode);
 		this.fileHelper = new FileHelper(this.app, this.settings);
 		this.deletionHelper = new DeletionHelper(this.app, this.settings);
 
@@ -42,6 +45,7 @@ export default class NoteNavigator extends Plugin {
 		try {
 			const data: unknown = await this.loadData();
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, data as Partial<NoteNavigatorSettings>);
+			this.statisticsStorage?.setMode(this.settings.statisticsStorageMode, false);
 		} catch {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Note Navigator" is the proper name of the plugin and must retain its capitalization
 			new Notice('Error loading Note Navigator plugin settings. Using defaults.');
@@ -256,10 +260,10 @@ export default class NoteNavigator extends Plugin {
 
 			// apply a delay before deleting the file to avoid 'tab is busy' notification
 			await this.deletionHelper.safeDelete(activeFile, `File deleted`, 200);
-			this.settings.numberOfDeletedFiles++;
+			this.statisticsStorage.increment(StatsKey.DeletedFiles);
 			await this.deletionHelper.handleAttachmentsAndFolders(attachments, orphanedFolders);
-			this.settings.numberOfDeletedAttachments += attachments.length;
-			this.settings.numberOfDeletedFolders += orphanedFolders.size;
+			this.statisticsStorage.increment(StatsKey.DeletedAttachments, attachments.length);
+			this.statisticsStorage.increment(StatsKey.DeletedFolders, orphanedFolders.size);
 			await this.saveSettings();
 		} catch {
 			new Notice('An error occurred while navigating or deleting the file.');
@@ -268,7 +272,7 @@ export default class NoteNavigator extends Plugin {
 
 	private async navigateFile(direction: "next" | "prev") {
 		try {
-			this.settings.numberOfFilesNavigated++;
+			this.statisticsStorage.increment(StatsKey.FilesNavigated);
 			await this.saveSettings();
 			await this.fileHelper.navigateFile(direction, this.settings.navigationScope);
 		} catch (error) {
@@ -320,7 +324,7 @@ export default class NoteNavigator extends Plugin {
 				const fileToOpen = this.app.vault.getAbstractFileByPath(nextFilePath);
 				if (fileToOpen && fileToOpen instanceof TFile) {
 					await this.app.workspace.getLeaf().openFile(fileToOpen);
-					this.settings.numberOfFilesNavigated++;
+					this.statisticsStorage.increment(StatsKey.FilesNavigated);
 					await this.saveSettings();
 				}
 			}
@@ -458,7 +462,7 @@ export default class NoteNavigator extends Plugin {
 			}
 
 			await this.deletionHelper.safeDelete(parentFolder, `Empty folder deleted after move`, 0);
-			this.settings.numberOfDeletedFolders++;
+			this.statisticsStorage.increment(StatsKey.DeletedFolders);
 			await this.saveSettings();
 		}
 	}
@@ -543,7 +547,7 @@ export default class NoteNavigator extends Plugin {
 				// Now open the previously calculated next file
 				if (nextFile) {
 					await this.app.workspace.getLeaf().openFile(nextFile);
-					this.settings.numberOfFilesNavigated++;
+					this.statisticsStorage.increment(StatsKey.FilesNavigated);
 					await this.saveSettings();
 				}
 			} catch (e) {
