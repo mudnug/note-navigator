@@ -18,8 +18,8 @@ export default class NoteNavigator extends Plugin {
 	private dialogObserver: MutationObserver | null = null;
 	private renameTimeout: number | null = null;
 	private dialogWaitTimeout: number | null = null;
-	private lastAttachmentPath: string | null = null;
 	private configChangeListenerRegistered = false;
+	private fadeObserver: MutationObserver | null = null;
 
 
 	async onload() {
@@ -31,7 +31,7 @@ export default class NoteNavigator extends Plugin {
 
 		this.registerCommands();
 		this.addSettingTab(new NoteNavigatorSettingTab(this.app, this));
-		this.updateAttachmentFolderFade();
+		activeWindow.setTimeout(() => this.applyAttachmentFade(), 100);
 
 		if (!this.configChangeListenerRegistered) {
 			this.configChangeListenerRegistered = true;
@@ -66,17 +66,13 @@ export default class NoteNavigator extends Plugin {
 			this.clearAttachmentFade();
 
 			if (!this.settings.fadeAttachmentFolders) {
-				this.lastAttachmentPath = null;
 				return;
 			}
 
 			const attachmentPath = this.getAttachmentFolderPath();
 			if (!attachmentPath || attachmentPath === "." || attachmentPath === "./") {
-				this.lastAttachmentPath = null;
 				return;
 			}
-
-			if (attachmentPath === this.lastAttachmentPath) return;
 
 			const pathSegments = attachmentPath.split('/');
 			const folderName = pathSegments[pathSegments.length - 1];
@@ -86,11 +82,46 @@ export default class NoteNavigator extends Plugin {
 				const folder = title.closest('.nav-folder');
 				if (folder) folder.addClass('note-navigator-fade');
 			});
-
-			this.lastAttachmentPath = attachmentPath;
 		} catch (error) {
 			console.error('[Note Navigator] Failed to update attachment folder fade:', error);
 		}
+	}
+
+	private applyAttachmentFade() {
+		if (!this.settings.fadeAttachmentFolders) {
+			return;
+		}
+
+		this.clearAttachmentFade();
+
+		const attachmentPath = this.getAttachmentFolderPath();
+		if (!attachmentPath || attachmentPath === "." || attachmentPath === "./") {
+			return;
+		}
+
+		const pathSegments = attachmentPath.split('/');
+		const folderName = pathSegments[pathSegments.length - 1];
+		const selector = `.nav-folder-title[data-path$="${CSS.escape(folderName)}"]`;
+
+		if (activeDocument.querySelector(selector)) {
+			this.updateAttachmentFolderFade();
+			return;
+		}
+
+		this.fadeObserver = new MutationObserver(() => {
+			if (activeDocument.querySelector(selector)) {
+				this.updateAttachmentFolderFade();
+				this.fadeObserver?.disconnect();
+				this.fadeObserver = null;
+			}
+		});
+
+		this.fadeObserver.observe(activeDocument.body, { childList: true, subtree: true });
+
+		activeWindow.setTimeout(() => {
+			this.fadeObserver?.disconnect();
+			this.fadeObserver = null;
+		}, 5000);
 	}
 
 	onunload() {
@@ -99,15 +130,17 @@ export default class NoteNavigator extends Plugin {
 		}
 
 		if (this.renameTimeout) {
-			window.clearTimeout(this.renameTimeout);
+			activeWindow.clearTimeout(this.renameTimeout);
 		}
 
 		if (this.dialogWaitTimeout) {
-			window.clearTimeout(this.dialogWaitTimeout);
+			activeWindow.clearTimeout(this.dialogWaitTimeout);
 		}
 
 		try {
 			this.clearAttachmentFade();
+			this.fadeObserver?.disconnect();
+			this.fadeObserver = null;
 		} catch (error) {
 			console.error('[Note Navigator] Failed to cleanup attachment folder fade:', error);
 		}
@@ -358,9 +391,9 @@ export default class NoteNavigator extends Plugin {
 			} else {
 				// Clear any existing timeout before setting a new one
 				if (this.dialogWaitTimeout) {
-					window.clearTimeout(this.dialogWaitTimeout);
+					activeWindow.clearTimeout(this.dialogWaitTimeout);
 				}
-				this.dialogWaitTimeout = window.setTimeout(waitForDialog, 50);
+				this.dialogWaitTimeout = activeWindow.setTimeout(waitForDialog, 50);
 			}
 		};
 		waitForDialog();
@@ -438,9 +471,9 @@ export default class NoteNavigator extends Plugin {
 			(this.app as unknown as { fileManager: { promptForFileRename: (f: TFolder) => void } }).fileManager.promptForFileRename(parentFolder);
 			// Clear any existing timeout before setting a new one
 			if (this.renameTimeout) {
-				window.clearTimeout(this.renameTimeout);
+				activeWindow.clearTimeout(this.renameTimeout);
 			}
-			this.renameTimeout = window.setTimeout(() => {
+			this.renameTimeout = activeWindow.setTimeout(() => {
 				const textarea: HTMLTextAreaElement | null =
 					activeDocument.querySelector('.rename-textarea');
 				if (textarea) {
