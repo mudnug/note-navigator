@@ -31,7 +31,7 @@ export default class NoteNavigator extends Plugin {
 
 		this.registerCommands();
 		this.addSettingTab(new NoteNavigatorSettingTab(this.app, this));
-		activeWindow.setTimeout(() => this.applyAttachmentFade(), 100);
+		window.setTimeout(() => this.applyAttachmentFade(), 100);
 
 		if (!this.configChangeListenerRegistered) {
 			this.configChangeListenerRegistered = true;
@@ -133,11 +133,11 @@ export default class NoteNavigator extends Plugin {
 		}
 
 		if (this.renameTimeout) {
-			activeWindow.clearTimeout(this.renameTimeout);
+			window.clearTimeout(this.renameTimeout);
 		}
 
 		if (this.dialogWaitTimeout) {
-			activeWindow.clearTimeout(this.dialogWaitTimeout);
+			window.clearTimeout(this.dialogWaitTimeout);
 		}
 
 		try {
@@ -394,9 +394,9 @@ export default class NoteNavigator extends Plugin {
 			} else {
 				// Clear any existing timeout before setting a new one
 				if (this.dialogWaitTimeout) {
-					activeWindow.clearTimeout(this.dialogWaitTimeout);
+					window.clearTimeout(this.dialogWaitTimeout);
 				}
-				this.dialogWaitTimeout = activeWindow.setTimeout(waitForDialog, 50);
+				this.dialogWaitTimeout = window.setTimeout(waitForDialog, 50);
 			}
 		};
 		waitForDialog();
@@ -474,9 +474,9 @@ export default class NoteNavigator extends Plugin {
 			(this.app as unknown as { fileManager: { promptForFileRename: (f: TFolder) => void } }).fileManager.promptForFileRename(parentFolder);
 			// Clear any existing timeout before setting a new one
 			if (this.renameTimeout) {
-				activeWindow.clearTimeout(this.renameTimeout);
+				window.clearTimeout(this.renameTimeout);
 			}
-			this.renameTimeout = activeWindow.setTimeout(() => {
+			this.renameTimeout = window.setTimeout(() => {
 				const textarea: HTMLTextAreaElement | null =
 					activeDocument.querySelector('.rename-textarea');
 				if (textarea) {

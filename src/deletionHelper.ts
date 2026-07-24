@@ -79,7 +79,7 @@ export class DeletionHelper {
 	async safeDelete(fileOrFolder: TFile | TFolder, successMessage: string | null, delayMs: number) {
 		try {
 			if (delayMs > 0) {
-				await new Promise(resolve => activeWindow.setTimeout(resolve, delayMs));
+				await new Promise(resolve => window.setTimeout(resolve, delayMs));
 			}
 			await this.performDelete(fileOrFolder, successMessage === null);
 		} catch (error) {
