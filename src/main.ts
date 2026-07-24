@@ -87,12 +87,17 @@ export default class NoteNavigator extends Plugin {
 		}
 	}
 
-	private applyAttachmentFade() {
-		if (!this.settings.fadeAttachmentFolders) {
-			return;
+	applyAttachmentFade() {
+		if (this.fadeObserver) {
+			this.fadeObserver.disconnect();
+			this.fadeObserver = null;
 		}
 
 		this.clearAttachmentFade();
+
+		if (!this.settings.fadeAttachmentFolders) {
+			return;
+		}
 
 		const attachmentPath = this.getAttachmentFolderPath();
 		if (!attachmentPath || attachmentPath === "." || attachmentPath === "./") {
@@ -103,25 +108,23 @@ export default class NoteNavigator extends Plugin {
 		const folderName = pathSegments[pathSegments.length - 1];
 		const selector = `.nav-folder-title[data-path$="${CSS.escape(folderName)}"]`;
 
-		if (activeDocument.querySelector(selector)) {
-			this.updateAttachmentFolderFade();
-			return;
-		}
+		const titles = activeDocument.querySelectorAll(selector);
+		titles.forEach(title => {
+			const folder = title.closest('.nav-folder');
+			if (folder) folder.addClass('note-navigator-fade');
+		});
 
 		this.fadeObserver = new MutationObserver(() => {
-			if (activeDocument.querySelector(selector)) {
-				this.updateAttachmentFolderFade();
-				this.fadeObserver?.disconnect();
-				this.fadeObserver = null;
-			}
+			const titles = activeDocument.querySelectorAll(selector);
+			titles.forEach(title => {
+				const folder = title.closest('.nav-folder');
+				if (folder && !folder.hasClass('note-navigator-fade')) {
+					folder.addClass('note-navigator-fade');
+				}
+			});
 		});
 
 		this.fadeObserver.observe(activeDocument.body, { childList: true, subtree: true });
-
-		activeWindow.setTimeout(() => {
-			this.fadeObserver?.disconnect();
-			this.fadeObserver = null;
-		}, 5000);
 	}
 
 	onunload() {

@@ -108,20 +108,18 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Fade attachment folders')
 			.setDesc('Make the attachment folder less noticeable in the file explorer.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.fadeAttachmentFolders)
-				.onChange(async (value) => {
-					this.plugin.settings.fadeAttachmentFolders = value;
-					await this.plugin.saveSettings();
-					this.plugin.updateAttachmentFolderFade();
-				}));
+		.addToggle(toggle => toggle
+			.setValue(this.plugin.settings.fadeAttachmentFolders)
+			.onChange(async (value) => {
+				this.plugin.settings.fadeAttachmentFolders = value;
+				await this.plugin.saveSettings();
+				this.plugin.applyAttachmentFade();
+			}));
 
 		if (!this.configChangeListenerRegistered) {
 			this.configChangeListenerRegistered = true;
 			this.plugin.registerEvent((this.app.workspace as WorkspaceWithConfigChange).on('config-change', () => {
-				if (this.plugin.settings.fadeAttachmentFolders) {
-					this.plugin.updateAttachmentFolderFade();
-				}
+				this.plugin.applyAttachmentFade();
 			}));
 		}
 
