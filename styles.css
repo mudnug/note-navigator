@@ -48,3 +48,7 @@ input.note-navigator-delete-depth-input.setting-input-invalid {
 :root {
 	--note-navigator-fade-opacity: 0.4;
 }
+
+.nav-folder.note-navigator-fade {
+	opacity: var(--note-navigator-fade-opacity);
+}

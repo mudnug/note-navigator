@@ -47,7 +47,7 @@ export default class NoteNavigator extends Plugin {
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, data as Partial<NoteNavigatorSettings>);
 			this.statisticsStorage?.setMode(this.settings.statisticsStorageMode, false);
 		} catch {
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Note Navigator" is the proper name of the plugin and must retain its capitalization
+			// "Note Navigator" is the proper name of the plugin and must retain its capitalization
 			new Notice('Error loading Note Navigator plugin settings. Using defaults.');
 		}
 	}
@@ -56,38 +56,37 @@ export default class NoteNavigator extends Plugin {
 		try {
 			await this.saveData(this.settings);
 		} catch {
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Note Navigator" is the proper name of the plugin and must retain its capitalization
+			// "Note Navigator" is the proper name of the plugin and must retain its capitalization
 			new Notice('Error saving Note Navigator plugin settings.');
 		}
 	}
 
 	updateAttachmentFolderFade() {
 		try {
-			const existing = activeDocument.getElementById('note-navigator-fade-attachment');
+			this.clearAttachmentFade();
 
 			if (!this.settings.fadeAttachmentFolders) {
-				if (existing) existing.remove();
 				this.lastAttachmentPath = null;
 				return;
 			}
 
 			const attachmentPath = this.getAttachmentFolderPath();
 			if (!attachmentPath || attachmentPath === "." || attachmentPath === "./") {
-				if (existing) existing.remove();
 				this.lastAttachmentPath = null;
 				return;
 			}
 
-			if (attachmentPath === this.lastAttachmentPath && existing) return;
-
-			if (existing) existing.remove();
+			if (attachmentPath === this.lastAttachmentPath) return;
 
 			const pathSegments = attachmentPath.split('/');
 			const folderName = pathSegments[pathSegments.length - 1];
-			const style = activeDocument.createElement('style');
-			style.id = 'note-navigator-fade-attachment';
-			style.textContent = `.nav-folder:has(> .nav-folder-title[data-path$="${CSS.escape(folderName)}"]) { opacity: var(--note-navigator-fade-opacity); }`;
-			activeDocument.head.appendChild(style);
+
+			const titles = activeDocument.querySelectorAll(`.nav-folder-title[data-path$="${CSS.escape(folderName)}"]`);
+			titles.forEach(title => {
+				const folder = title.closest('.nav-folder');
+				if (folder) folder.addClass('note-navigator-fade');
+			});
+
 			this.lastAttachmentPath = attachmentPath;
 		} catch (error) {
 			console.error('[Note Navigator] Failed to update attachment folder fade:', error);
@@ -108,8 +107,7 @@ export default class NoteNavigator extends Plugin {
 		}
 
 		try {
-			const fadeStyle = activeDocument.getElementById('note-navigator-fade-attachment');
-			if (fadeStyle) fadeStyle.remove();
+			this.clearAttachmentFade();
 		} catch (error) {
 			console.error('[Note Navigator] Failed to cleanup attachment folder fade:', error);
 		}
@@ -122,6 +120,12 @@ export default class NoteNavigator extends Plugin {
 	private getAttachmentFolderPath(): string {
 		const configValue = this.getVaultConfig("attachmentFolderPath");
 		return typeof configValue === "string" ? configValue : "";
+	}
+
+	private clearAttachmentFade(): void {
+		activeDocument.querySelectorAll('.nav-folder.note-navigator-fade').forEach(el => {
+			el.removeClass('note-navigator-fade');
+		});
 	}
 
 	private registerCommands() {
@@ -365,7 +369,7 @@ export default class NoteNavigator extends Plugin {
 		(this.app as App & { commands?: { executeCommandById?: (id: string) => void } }).commands?.executeCommandById?.(moveCommandId);
 	}
 
-	/* eslint-disable obsidianmd/rule-custom-message */
+	/* The following console log messages are specifically requested by the user here */
 	private outputDebugMessages() {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile || !activeFile.parent) {

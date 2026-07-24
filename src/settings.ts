@@ -298,7 +298,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			feedbackLink.addClass('note-navigator-feedback-link');
 			feedbackParagraph.append(feedbackLink, ", or ");
 
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "support the developer" is already part of a sentence.
+			// "support the developer" is already part of a sentence.
 			const supportLink = containerEl.createEl('a', { href: 'https://buymeacoffee.com/softwarefriend', text: 'support the developer' });
 			supportLink.setAttr('target', '_blank');
 			supportLink.addClass('custom-support-link');

@@ -34,7 +34,7 @@ export class ConfirmationDialog {
         modal.titleEl.setText(this.header);
 
         this.sections.forEach(section => {
-            const headingItem = modal.contentEl.createDiv({ text: section.heading });
+            const headingItem = modal.contentEl.createEl('div', { text: section.heading });
             headingItem.addClass("section-heading");
 
             const list = modal.contentEl.createEl("ul");
