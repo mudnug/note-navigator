@@ -297,7 +297,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 			feedbackParagraph.append(feedbackLink, ", or ");
 
 			// "support the developer" is already part of a sentence.
-			const supportLink = containerEl.createEl('a', { href: 'https://buymeacoffee.com/softwarefriend', text: 'support the developer' });
+			const supportLink = containerEl.createEl('a', { href: 'https://buymeacoffee.com/softwarefriend', text: 'Support the developer' });
 			supportLink.setAttr('target', '_blank');
 			supportLink.addClass('custom-support-link');
 			feedbackParagraph.append(supportLink);

@@ -23,6 +23,9 @@ export default defineConfig([
       // Enable TypeScript member ordering
       "@typescript-eslint/member-ordering": "error",
 
+      // Sentence case rule with brand names
+      "obsidianmd/ui/sentence-case": ["error", { brands: ["Note Navigator", "Obsidian"] }],
+
       // Perfectionist sorting rules
       "perfectionist/sort-imports": "error",
       "perfectionist/sort-objects": ["error", { type: "alphabetical" }],
