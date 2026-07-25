@@ -216,13 +216,13 @@ export default class NoteNavigator extends Plugin {
 				checkCallback: (checking: boolean) => {
 					const activeFile = this.app.workspace.getActiveFile();
 					if (activeFile && activeFile.parent) {
-						if (!checking) this.outputDebugMessages();
+						if (!checking) void this.outputDebugMessages();
 						return true;
 					}
 					return false;
 				},
 				id: 'log-debugging-messages',
-				name: 'Log messages to console (debug)',
+				name: 'Copy Debug information to clipboard',
 			},
 			{
 				editorCallback: (editor: Editor) => {
@@ -406,7 +406,7 @@ export default class NoteNavigator extends Plugin {
 	}
 
 	/* The following console log messages are specifically requested by the user here */
-	private outputDebugMessages() {
+	private async outputDebugMessages() {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile || !activeFile.parent) {
 			new Notice('No active file or folder to debug sorting.');
@@ -418,24 +418,20 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 
-		// Debug logging - intentional console output for debugging
-		// This code only runs when enableDebugLogging setting is true
-		console.group('Note Navigator Debug Information');
-		console.log(`Current file: ${activeFile.path}`);
-		console.log(`Current folder: ${activeFile.parent.path}`);
-		console.log(`Settings - removeEmptyFolders: ${this.settings.removeEmptyFolders}`);
-		console.log(`Settings - parentDirectoryDepth: ${this.settings.maxDirectoryDeleteTraversal}`);
+		let debugText = 'Note Navigator Debug Information\n';
+		debugText += `Current file: ${activeFile.path}\n`;
+		debugText += `Current folder: ${activeFile.parent.path}\n`;
+		debugText += `Settings - removeEmptyFolders: ${this.settings.removeEmptyFolders}\n`;
+		debugText += `Settings - parentDirectoryDepth: ${this.settings.maxDirectoryDeleteTraversal}\n`;
 
-		// Output current sort order
 		const fileExplorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
-		let sortOrder = "alphabetical"; // Default sort order
+		let sortOrder = "alphabetical";
 		if (fileExplorerLeaf && fileExplorerLeaf.view) {
 			const state = fileExplorerLeaf.view.getState();
 			sortOrder = typeof state.sortOrder === 'string' ? state.sortOrder : "alphabetical";
 		}
-		console.log(`Current sort order: ${sortOrder}`);
+		debugText += `Current sort order: ${sortOrder}\n`;
 
-		// Output current file deletion method
 		const deletionMethod = this.getVaultConfig("trashOption");
 		const friendlyDeletionMethod: Record<string, string> = {
 			"local": "Move to obsidian trash (.trash folder)",
@@ -443,17 +439,21 @@ export default class NoteNavigator extends Plugin {
 			"system": "Move to system trash",
 		};
 		const methodLabel = friendlyDeletionMethod[deletionMethod as string] || "Unknown";
-		console.log(`Current file deletion method: ${methodLabel}`);
+		debugText += `Current file deletion method: ${methodLabel}\n`;
 
-		// Log sorted files in the current folder
 		const folderFiles = activeFile.parent.children.filter((child): child is TFile => child instanceof TFile);
 		const sortedFiles = this.fileHelper.sortFiles(folderFiles);
-		console.log('Sorted files in the current folder:');
-		sortedFiles.forEach(file => console.log(`  - ${file.path}`));
+		debugText += 'Sorted files in the current folder:\n';
+		sortedFiles.forEach(file => {
+			debugText += `  - ${file.path}\n`;
+		});
 
-		console.groupEnd();
-
-		new Notice('Debug information logged to console. Check the developer console for details.');
+		try {
+			await navigator.clipboard.writeText(debugText);
+			new Notice('Debug information copied to clipboard.');
+		} catch {
+			new Notice('Failed to copy debug information to clipboard.');
+		}
 	}
 
 	private async renameParentFolder() {
