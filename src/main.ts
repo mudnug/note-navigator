@@ -11,10 +11,10 @@ import { DEFAULT_SETTINGS, NoteNavigatorSettings, NoteNavigatorSettingTab } from
 import { StatisticsStorage, StatsKey } from './statisticsStorage';
 
 export default class NoteNavigator extends Plugin {
-	settings: NoteNavigatorSettings;
-	statisticsStorage: StatisticsStorage;
-	private deletionHelper: DeletionHelper;
-	private fileHelper: FileHelper;
+	public settings: NoteNavigatorSettings = { ...DEFAULT_SETTINGS };
+	declare statisticsStorage: StatisticsStorage;
+	private deletionHelper!: DeletionHelper;
+	private fileHelper!: FileHelper;
 	private dialogObserver: MutationObserver | null = null;
 	private renameTimeout: number | null = null;
 	private dialogWaitTimeout: number | null = null;
@@ -45,7 +45,7 @@ export default class NoteNavigator extends Plugin {
 		try {
 			const data: unknown = await this.loadData();
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, data as Partial<NoteNavigatorSettings>);
-			this.statisticsStorage?.setMode(this.settings.statisticsStorageMode, false);
+			await this.statisticsStorage?.setMode(this.settings.statisticsStorageMode, false);
 		} catch {
 			// "Note Navigator" is the proper name of the plugin and must retain its capitalization
 			new Notice('Error loading Note Navigator plugin settings. Using defaults.');
@@ -354,7 +354,7 @@ export default class NoteNavigator extends Plugin {
 
 		const onRename = async (file: TAbstractFile, oldPath: string) => {
 			if (file === target) {
-				this.app.vault.off('rename', onRename);
+				this.app.vault.off('rename', onRename as (...data: unknown[]) => unknown);
 				if (this.dialogObserver) this.dialogObserver.disconnect();
 
 				if (originalParentFolder) {
@@ -386,7 +386,7 @@ export default class NoteNavigator extends Plugin {
 				}
 				this.dialogObserver = new MutationObserver(() => {
 					if (!dialog || !dialog.parentElement || !dialog.parentElement.contains(dialog)) {
-						this.app.vault.off('rename', onRename);
+						this.app.vault.off('rename', onRename as (...data: unknown[]) => unknown);
 						if (this.dialogObserver) this.dialogObserver.disconnect();
 					}
 				});

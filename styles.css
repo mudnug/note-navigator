@@ -28,11 +28,19 @@
 	margin: 0
 }
 
-hr.note-navigator-moderate {
-	margin: 1rem 0;
+.custom-support-link {
+	text-decoration: underline;
 }
 
 .note-navigator-feedback-link {
+	text-decoration: underline;
+}
+
+.note-navigator-support-section {
+	margin-top: 1rem;
+}
+
+.note-navigator-support-section a {
 	text-decoration: underline;
 }
 

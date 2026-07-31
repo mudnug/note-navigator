@@ -28,7 +28,7 @@ export class StatisticsStorage {
 	get(key: StatsKey): number {
 		if (this.mode === 'browserStorage') {
 			const value = this.plugin.app.loadLocalStorage(LS_PREFIX + key) as string | null;
-			return parseInt(value ?? '0');
+			return parseInt(value ?? '0', 10);
 		}
 		return this.plugin.settings[key] || 0;
 	}
@@ -63,7 +63,7 @@ export class StatisticsStorage {
 		}
 	}
 
-	setMode(newMode: StatisticsStorageMode, migrate = true): void {
+	async setMode(newMode: StatisticsStorageMode, migrate = true): Promise<void> {
 		if (this.mode === newMode) return;
 		if (!migrate) {
 			this.mode = newMode;
@@ -71,27 +71,38 @@ export class StatisticsStorage {
 		}
 
 		const currentStats = this.getAll();
-		const oldMode = this.mode;
-		this.mode = newMode;
 
 		if (newMode === 'browserStorage') {
 			for (const statsKey of Object.values(StatsKey) as StatsKey[]) {
 				void this.plugin.app.saveLocalStorage(LS_PREFIX + statsKey, String(currentStats[statsKey]));
-				if (oldMode === 'pluginStorage') {
+			}
+			try {
+				for (const statsKey of Object.values(StatsKey) as StatsKey[]) {
 					(this.plugin.settings[statsKey] as number | undefined) = 0;
 				}
-			}
-			if (oldMode === 'pluginStorage') {
-				void this.plugin.saveSettings();
+				await this.plugin.saveSettings();
+			} catch (e) {
+				console.error('[Note Navigator] Failed to save settings during migration to browserStorage:', e);
+				throw e;
 			}
 		} else {
 			for (const statsKey of Object.values(StatsKey) as StatsKey[]) {
 				(this.plugin.settings[statsKey] as number | undefined) = currentStats[statsKey];
-				if (oldMode === 'browserStorage') {
+			}
+			try {
+				await this.plugin.saveSettings();
+				for (const statsKey of Object.values(StatsKey) as StatsKey[]) {
 					void this.plugin.app.saveLocalStorage(LS_PREFIX + statsKey, null);
 				}
+			} catch (e) {
+				console.error('[Note Navigator] Failed to save settings during migration to pluginStorage:', e);
+				for (const statsKey of Object.values(StatsKey) as StatsKey[]) {
+					void this.plugin.app.saveLocalStorage(LS_PREFIX + statsKey, String(currentStats[statsKey]));
+				}
+				throw e;
 			}
-			void this.plugin.saveSettings();
 		}
+
+		this.mode = newMode;
 	}
 }
