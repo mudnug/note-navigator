@@ -19,6 +19,7 @@ export interface NoteNavigatorSettings {
 	enableDebugLogging: boolean;
 	fadeAttachmentFolders: boolean;
 	maxDirectoryDeleteTraversal: number;
+	showProtectedFolderIcons: boolean;
 	protectedFolders: { path: string; recursive: boolean }[];
 	statisticsStorageMode: StatisticsStorageMode;
 }
@@ -39,6 +40,7 @@ export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
 	removeOrphanAttachments: true,
 	showConfirmationPrompt: true,
 	showDeleteNotice: true,
+	showProtectedFolderIcons: true,
 	statisticsStorageMode: 'pluginStorage',
 }
 
@@ -91,6 +93,14 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 						},
 						desc: 'Make the attachment folder less noticeable in the file explorer.',
 						name: 'Fade attachment folders',
+					},
+					{
+						control: {
+							key: 'showProtectedFolderIcons',
+							type: 'toggle',
+						},
+						desc: 'Show a padlock icon next to protected folders in the file explorer (and Notebook Navigator if installed).',
+						name: 'Show protected folder icons',
 					},
 				],
 				type: 'group',
@@ -160,11 +170,12 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 										}
 										return false;
 									});
-									if (isProtected(path)) return;
-									this.plugin.settings.protectedFolders.push({ path, recursive: true });
-									void this.plugin.saveSettings().then(() => {
-										super.update();
-									});
+ 									if (isProtected(path)) return;
+ 									this.plugin.settings.protectedFolders.push({ path, recursive: true });
+ 									void this.plugin.saveSettings().then(() => {
+ 										super.update();
+ 										this.plugin.applyProtectedFolderIcons();
+ 									});
 								}, (path) => this.plugin.settings.protectedFolders.some((entry) => {
 									if (entry.path === path) return true;
 									if (entry.recursive) {
@@ -188,12 +199,14 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 								.onChange(async (value) => {
 									entry.recursive = value;
 									await this.plugin.saveSettings();
+									this.plugin.applyProtectedFolderIcons();
 								}));
-							setting.addButton(button => button.setButtonText('Remove protection').onClick(async () => {
-								this.plugin.settings.protectedFolders = this.plugin.settings.protectedFolders.filter(e => e !== entry);
-								await this.plugin.saveSettings();
-								super.update();
-							}));
+ 							setting.addButton(button => button.setButtonText('Remove protection').onClick(async () => {
+ 								this.plugin.settings.protectedFolders = this.plugin.settings.protectedFolders.filter(e => e !== entry);
+ 								await this.plugin.saveSettings();
+ 								super.update();
+ 								this.plugin.applyProtectedFolderIcons();
+ 							}));
 						},
 					})),
 				],
@@ -286,6 +299,10 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 		return super.getControlValue(key);
 	}
 
+	refreshSettingDefinitions(): void {
+		super.update();
+	}
+
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		if (key === 'statisticsStorageMode') {
 			await this.plugin.statisticsStorage.setMode(value as StatisticsStorageMode);
@@ -295,6 +312,9 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 		const result = super.setControlValue(key, value);
 		if (key === 'fadeAttachmentFolders') {
 			this.plugin.applyAttachmentFade();
+		}
+		if (key === 'showProtectedFolderIcons') {
+			this.plugin.applyProtectedFolderIcons();
 		}
 		if (key === 'removeEmptyFolders') {
 			this.refreshDomState();
@@ -388,3 +408,4 @@ class FolderPickerSuggester extends SuggestModal<TFolder> {
 		void this.onChoose(folder);
 	}
 }
+

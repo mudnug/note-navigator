@@ -6,6 +6,7 @@ export type WorkspaceWithConfigChange = App['workspace'] & {
 
 import { DeletionHelper } from './deletionHelper';
 import { FileHelper } from './fileHelper';
+import { ProtectedFolderIcons } from './protectedFolderIcons';
 import { scrollToEndAndBeyond } from './scrollHelper';
 import { DEFAULT_SETTINGS, NoteNavigatorSettings, NoteNavigatorSettingTab } from './settings';
 import { StatisticsStorage, StatsKey } from './statisticsStorage';
@@ -18,8 +19,12 @@ export default class NoteNavigator extends Plugin {
 	private dialogObserver: MutationObserver | null = null;
 	private renameTimeout: number | null = null;
 	private dialogWaitTimeout: number | null = null;
+	private initializationTimeout: number | null = null;
 	private configChangeListenerRegistered = false;
 	private fadeObserver: MutationObserver | null = null;
+	private protectedFolderIcons!: ProtectedFolderIcons;
+	private settingTab!: NoteNavigatorSettingTab;
+	private settingsSavePromise: Promise<void> = Promise.resolve();
 
 
 	async onload() {
@@ -28,10 +33,16 @@ export default class NoteNavigator extends Plugin {
 		this.statisticsStorage = new StatisticsStorage(this, this.settings.statisticsStorageMode);
 		this.fileHelper = new FileHelper(this.app, this.settings);
 		this.deletionHelper = new DeletionHelper(this.app, this.settings);
+		this.protectedFolderIcons = new ProtectedFolderIcons(this);
 
 		this.registerCommands();
-		this.addSettingTab(new NoteNavigatorSettingTab(this.app, this));
-		window.setTimeout(() => this.applyAttachmentFade(), 100);
+		this.settingTab = new NoteNavigatorSettingTab(this.app, this);
+		this.addSettingTab(this.settingTab);
+		this.initializationTimeout = window.setTimeout(() => {
+			this.initializationTimeout = null;
+			this.applyAttachmentFade();
+			this.applyProtectedFolderIcons();
+		}, 100);
 
 		if (!this.configChangeListenerRegistered) {
 			this.configChangeListenerRegistered = true;
@@ -39,12 +50,20 @@ export default class NoteNavigator extends Plugin {
 				this.updateAttachmentFolderFade();
 			}));
 		}
+
+		this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
+			this.protectedFolderIcons.handleRename(file, oldPath);
+		}));
+		this.registerEvent(this.app.vault.on('delete', (file) => {
+			this.protectedFolderIcons.handleDelete(file);
+		}));
 	}
 
 	async loadSettings() {
 		try {
+			await this.settingsSavePromise;
 			const data: unknown = await this.loadData();
-			this.settings = Object.assign({}, DEFAULT_SETTINGS, data as Partial<NoteNavigatorSettings>);
+			Object.assign(this.settings, DEFAULT_SETTINGS, data as Partial<NoteNavigatorSettings>);
 			await this.statisticsStorage?.setMode(this.settings.statisticsStorageMode, false);
 		} catch {
 			// "Note Navigator" is the proper name of the plugin and must retain its capitalization
@@ -53,12 +72,15 @@ export default class NoteNavigator extends Plugin {
 	}
 	
 	async saveSettings() {
-		try {
-			await this.saveData(this.settings);
-		} catch {
-			// "Note Navigator" is the proper name of the plugin and must retain its capitalization
-			new Notice('Error saving Note Navigator plugin settings.');
-		}
+		this.settingsSavePromise = this.settingsSavePromise.then(async () => {
+			try {
+				await this.saveData(this.settings);
+			} catch {
+				// "Note Navigator" is the proper name of the plugin and must retain its capitalization
+				new Notice('Error saving Note Navigator plugin settings.');
+			}
+		});
+		await this.settingsSavePromise;
 	}
 
 	updateAttachmentFolderFade() {
@@ -127,6 +149,14 @@ export default class NoteNavigator extends Plugin {
 		this.fadeObserver.observe(activeDocument.body, { childList: true, subtree: true });
 	}
 
+	applyProtectedFolderIcons(): void {
+		this.protectedFolderIcons.apply();
+	}
+
+	refreshSettingsTab(): void {
+		if (this.settingTab.containerEl.isConnected) this.settingTab.refreshSettingDefinitions();
+	}
+
 	onunload() {
 		if (this.dialogObserver) {
 			this.dialogObserver.disconnect();
@@ -140,12 +170,23 @@ export default class NoteNavigator extends Plugin {
 			window.clearTimeout(this.dialogWaitTimeout);
 		}
 
+		if (this.initializationTimeout !== null) {
+			window.clearTimeout(this.initializationTimeout);
+			this.initializationTimeout = null;
+		}
+
 		try {
 			this.clearAttachmentFade();
 			this.fadeObserver?.disconnect();
 			this.fadeObserver = null;
 		} catch (error) {
 			console.error('[Note Navigator] Failed to cleanup attachment folder fade:', error);
+		}
+
+		try {
+			this.protectedFolderIcons.disconnect();
+		} catch (error) {
+			console.error('[Note Navigator] Failed to cleanup protected folder icons:', error);
 		}
 	}
 
@@ -296,7 +337,7 @@ export default class NoteNavigator extends Plugin {
 
 	private async addFolderToProtectedFolders() {
 		const activeFile = this.app.workspace.getActiveFile();
-		const folder = activeFile?.parent ?? this.getSelectedFolder();
+		const folder = this.getSelectedFolder() ?? activeFile?.parent;
 		if (!folder) {
 			new Notice('No folder found to protect.');
 			return;
@@ -309,6 +350,8 @@ export default class NoteNavigator extends Plugin {
 		}
 		this.settings.protectedFolders.push({ path, recursive: true });
 		await this.saveSettings();
+		this.applyProtectedFolderIcons();
+		this.refreshSettingsTab();
 		new Notice(`Protected folder added: ${path || '/'}`);
 	}
 

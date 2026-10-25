@@ -66,3 +66,31 @@ input.note-navigator-delete-depth-input.setting-input-invalid {
 .nav-folder.note-navigator-fade {
 	opacity: var(--note-navigator-fade-opacity);
 }
+
+.note-navigator-protected-icon {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 4px;
+	font-size: 0.9em;
+	opacity: 0.7;
+	vertical-align: middle;
+}
+
+.note-navigator-protected-icon::before {
+	content: '\1F6E1';
+}
+
+/* Notebook Navigator protected folder icons */
+.nn-navitem-name + .note-navigator-protected-icon {
+	display: inline-flex;
+	align-items: center;
+	margin-inline-start: 4px;
+	font-size: 0.9em;
+	opacity: 0.7;
+	flex-shrink: 0;
+	vertical-align: middle;
+}
+
+.nn-navitem-content .note-navigator-protected-icon::before {
+	content: '\1F6E1';
+}
