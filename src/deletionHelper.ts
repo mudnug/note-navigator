@@ -14,6 +14,10 @@ export class DeletionHelper {
 		this.linkHelper = new LinkHelper(app, settings);
 	}
 
+	isProtectedOrContainsProtected(folder: TFolder | null): boolean {
+		return this.isProtectedFolder(folder) || this.containsProtectedDescendant(folder);
+	}
+
 	async prepareForDeletion(activeFile: TFile): Promise<[TFile[], Set<TFolder>]> {
 		const attachmentFiles = await this.linkHelper.findSingularReferenceAttachments(activeFile);
 		const orphanedFolders = new Set<TFolder>();
@@ -40,6 +44,9 @@ export class DeletionHelper {
 
 		if (this.settings.removeEmptyFolders) {
 			for (const folder of folders) {
+				if (this.isProtectedOrContainsProtected(folder)) {
+					continue;
+				}
 				await this.deleteWithoutNotice(folder);
 				deletedItems.push(`Folder: ${folder.name}`);
 			}
@@ -60,7 +67,10 @@ export class DeletionHelper {
 		}
 
 		if (this.settings.removeEmptyFolders && folders.size > 0) {
-			sections.push(new ConfirmationSection('The following folders would become empty and will also be deleted:', Array.from(folders).map(folder => folder.path)));
+			const deletableFolders = Array.from(folders).filter(folder => !this.isProtectedOrContainsProtected(folder));
+			if (deletableFolders.length > 0) {
+				sections.push(new ConfirmationSection('The following folders would become empty and will also be deleted:', deletableFolders.map(folder => folder.path)));
+			}
 		}
 
 		return new ConfirmationDialog(this.app, header, sections).show();
@@ -76,15 +86,19 @@ export class DeletionHelper {
 		return new ConfirmationDialog(this.app, header, sections).show();
 	}
 
-	async safeDelete(fileOrFolder: TFile | TFolder, successMessage: string | null, delayMs: number) {
+	async safeDelete(fileOrFolder: TFile | TFolder, successMessage: string | null, delayMs: number): Promise<boolean> {
 		try {
+			if (fileOrFolder instanceof TFolder && this.isProtectedOrContainsProtected(fileOrFolder)) {
+				return false;
+			}
 			if (delayMs > 0) {
 				await new Promise(resolve => window.setTimeout(resolve, delayMs));
 			}
-			await this.performDelete(fileOrFolder, successMessage === null);
+			return await this.performDelete(fileOrFolder, successMessage === null);
 		} catch (error) {
 			console.error(`Error deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}:`, error);
 			new Notice(`An error occurred while deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}.`);
+			return false;
 		}
 	}
 
@@ -96,13 +110,17 @@ export class DeletionHelper {
 		await this.performDelete(fileOrFolder, true);
 	}
 
-	private async performDelete(fileOrFolder: TFile | TFolder, skipNotice: boolean, customMessage?: string) {
+	private async performDelete(fileOrFolder: TFile | TFolder, skipNotice: boolean, customMessage?: string): Promise<boolean> {
+		if (fileOrFolder instanceof TFolder && this.isProtectedOrContainsProtected(fileOrFolder)) {
+			return false;
+		}
 		await this.app.fileManager.trashFile(fileOrFolder);
 
 		if (this.settings.showDeleteNotice && !skipNotice) {
 			const message = customMessage || `Deleted ${fileOrFolder instanceof TFolder ? 'folder: ' : ': '}${fileOrFolder.name}`;
 			new Notice(message);
 		}
+		return true;
 	}
 
 	private showGroupedDeletionNotice(deletedItems: string[]) {
@@ -137,6 +155,9 @@ export class DeletionHelper {
 			return;
 		}
 
+		if (this.isProtectedFolder(folder) || this.containsProtectedDescendant(folder)) {
+			return;
+		}
 		if (this.fileHelper.wouldFolderBeEmpty(folder, filesToDelete, orphanedFolders)) {
 			orphanedFolders.add(folder);
 
@@ -149,10 +170,35 @@ export class DeletionHelper {
 			return;
 		}
 
+		if (this.isProtectedFolder(folder) || this.containsProtectedDescendant(folder)) {
+			return;
+		}
 		if (this.fileHelper.wouldFolderBeEmpty(folder, filesToDelete, orphanedFolders)) {
 			orphanedFolders.add(folder);
 
 			await this.checkOrphanedFolderWithDepth(folder.parent, filesToDelete, orphanedFolders, remainingDepth - 1);
 		}
+	}
+
+	private isProtectedFolder(folder: TFolder | null): boolean {
+		if (!folder) return false;
+		return this.settings.protectedFolders.some(entry => {
+			if (entry.path === folder.path) return true;
+			if (entry.recursive) {
+				if (entry.path === '') return folder.path !== '';
+				return folder.path.startsWith(entry.path + '/');
+			}
+			return false;
+		});
+	}
+
+	private containsProtectedDescendant(folder: TFolder | null): boolean {
+		if (!folder) return false;
+		return this.settings.protectedFolders.some(entry => {
+			const protectedPath = entry.path;
+			if (protectedPath === folder.path) return false;
+			if (folder.path === '') return protectedPath !== '';
+			return protectedPath.startsWith(folder.path + '/');
+		});
 	}
 }
