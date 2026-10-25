@@ -24,8 +24,14 @@
 	width: 250px;
 }
 
-.note-navigator-stats-list {
-	margin: 0
+.note-navigator-protected-subfolders-label {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	vertical-align: middle;
+}
+
+.note-navigator-protected-folder-item.setting-item {
+	align-items: center;
 }
 
 .custom-support-link {

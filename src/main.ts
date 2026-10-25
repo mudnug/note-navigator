@@ -303,7 +303,7 @@ export default class NoteNavigator extends Plugin {
 			this.statisticsStorage.increment(StatsKey.DeletedFiles);
 			await this.deletionHelper.handleAttachmentsAndFolders(attachments, orphanedFolders);
 			this.statisticsStorage.increment(StatsKey.DeletedAttachments, attachments.length);
-			this.statisticsStorage.increment(StatsKey.DeletedFolders, orphanedFolders.size);
+			this.statisticsStorage.increment(StatsKey.DeletedFolders, Array.from(orphanedFolders).filter(folder => !this.deletionHelper.isProtectedOrContainsProtected(folder)).length);
 			await this.saveSettings();
 		} catch {
 			new Notice('An error occurred while navigating or deleting the file.');
@@ -495,15 +495,17 @@ export default class NoteNavigator extends Plugin {
 	}
 
 	private async checkAndCleanupEmptyParentFolder(parentFolder: TFolder): Promise<void> {
-		if (this.settings.removeEmptyFolders && this.fileHelper.isFolderCurrentlyEmpty(parentFolder)) {
+		if (this.settings.removeEmptyFolders && this.fileHelper.isFolderCurrentlyEmpty(parentFolder) && !this.deletionHelper.isProtectedOrContainsProtected(parentFolder)) {
 			if (this.settings.showConfirmationPrompt) {
 				const confirmed = await this.deletionHelper.confirmDeletionForEmptyFolder(parentFolder);
 				if (!confirmed) return;
 			}
 
-			await this.deletionHelper.safeDelete(parentFolder, `Empty folder deleted after move`, 0);
-			this.statisticsStorage.increment(StatsKey.DeletedFolders);
-			await this.saveSettings();
+			const deleted = await this.deletionHelper.safeDelete(parentFolder, `Empty folder deleted after move`, 0);
+			if (deleted) {
+				this.statisticsStorage.increment(StatsKey.DeletedFolders);
+				await this.saveSettings();
+			}
 		}
 	}
 

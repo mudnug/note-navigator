@@ -1,4 +1,4 @@
-import { App, Setting, type SettingDefinitionItem } from 'obsidian';
+import { App, Setting, type SettingDefinitionItem, SuggestModal, TFolder } from 'obsidian';
 import { PluginSettingTab, SettingPage } from 'obsidian';
 
 import NoteNavigator from './main';
@@ -19,6 +19,7 @@ export interface NoteNavigatorSettings {
 	enableDebugLogging: boolean;
 	fadeAttachmentFolders: boolean;
 	maxDirectoryDeleteTraversal: number;
+	protectedFolders: { path: string; recursive: boolean }[];
 	statisticsStorageMode: StatisticsStorageMode;
 }
 
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS: NoteNavigatorSettings = {
 	numberOfDeletedFolders: 0,
 	numberOfFilesNavigated: 0,
 	numberOfSettingViews: 0,
+	protectedFolders: [],
 	removeEmptyFolders: true,
 	removeOrphanAttachments: true,
 	showConfirmationPrompt: true,
@@ -135,6 +137,68 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 					},
 				],
 				type: 'group',
+			},
+			{
+				heading: 'Protected folders',
+				items: [
+					{
+						desc: "Keep selected folders when they become empty. Enable 'Include subfolders' to protect the entire folder tree. Files inside can still be deleted.",
+						name: '',
+					},
+					{
+						desc: 'These folders will not removed during automatic empty-folder cleanup.',
+						name: 'Add folder',
+						render: (setting) => {
+							setting.addButton(button => button.setButtonText('Add folder').onClick(() => {
+								const modal = new FolderPickerSuggester(this.app, (folder) => {
+									const path = folder.path;
+									const isProtected = (value: string) => this.plugin.settings.protectedFolders.some((entry) => {
+										if (entry.path === value) return true;
+										if (entry.recursive) {
+											if (entry.path === '') return value !== '';
+											return value.startsWith(entry.path + '/');
+										}
+										return false;
+									});
+									if (isProtected(path)) return;
+									this.plugin.settings.protectedFolders.push({ path, recursive: true });
+									void this.plugin.saveSettings().then(() => {
+										super.update();
+									});
+								}, (path) => this.plugin.settings.protectedFolders.some((entry) => {
+									if (entry.path === path) return true;
+									if (entry.recursive) {
+										if (entry.path === '') return path !== '';
+										return path.startsWith(entry.path + '/');
+									}
+									return false;
+								}));
+								modal.open();
+							}));
+						},
+					},
+					...this.plugin.settings.protectedFolders.map((entry) => ({
+						name: entry.path,
+						render: (setting: Setting) => {
+							setting.setName(entry.path);
+							setting.settingEl.addClass('note-navigator-protected-folder-item');
+							setting.controlEl.createSpan({ cls: 'note-navigator-protected-subfolders-label', text: 'Include subfolders: ' });
+							setting.addToggle(toggle => toggle
+								.setValue(entry.recursive)
+								.onChange(async (value) => {
+									entry.recursive = value;
+									await this.plugin.saveSettings();
+								}));
+							setting.addButton(button => button.setButtonText('Remove protection').onClick(async () => {
+								this.plugin.settings.protectedFolders = this.plugin.settings.protectedFolders.filter(e => e !== entry);
+								await this.plugin.saveSettings();
+								super.update();
+							}));
+						},
+					})),
+				],
+				type: 'group',
+				visible: () => this.plugin.settings.removeEmptyFolders,
 			},
 			{
 				heading: 'Prompts',
@@ -299,5 +363,28 @@ export class StatisticsPage extends SettingPageBase {
 			const listItem = statsList.createEl('li');
 			listItem.textContent = `${this.tab.formatToSentenceCase(key)}: ${value}`;
 		});
+	}
+}
+
+
+class FolderPickerSuggester extends SuggestModal<TFolder> {
+	folders: TFolder[];
+	onChoose: (folder: TFolder) => void;
+	isProtected: (path: string) => boolean;
+	constructor(app: App, onChoose: (folder: TFolder) => void, isProtected?: (path: string) => boolean) {
+		super(app);
+		this.onChoose = onChoose;
+		this.isProtected = isProtected ?? (() => false);
+		this.folders = this.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder && !this.isProtected(f.path)).sort((a, b) => a.path.localeCompare(b.path));
+	}
+	getSuggestions(query: string): TFolder[] {
+		return this.folders.filter(f => f.path.toLowerCase().includes(query.toLowerCase()));
+	}
+	renderSuggestion(folder: TFolder, el: HTMLElement) {
+		el.setText(folder.path);
+	}
+	onChooseSuggestion(folder: TFolder, evt: MouseEvent | KeyboardEvent): void {
+		this.close();
+		void this.onChoose(folder);
 	}
 }
