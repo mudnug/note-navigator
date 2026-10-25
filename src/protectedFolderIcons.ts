@@ -147,9 +147,6 @@ export class ProtectedFolderIcons {
 
 		// Notebook Navigator support (only if the plugin is installed/rendered)
 		try {
-			const nnEnabled = (this.plugin.app as { plugins?: { enabledPlugins?: { has?: (id: string) => boolean } } }).plugins?.enabledPlugins?.has?.('notebook-navigator');
-			if (nnEnabled === false) return;
-
 			activeDocument.querySelectorAll('.nn-navitem .note-navigator-protected-icon').forEach(el => {
 				const navItem = el.closest('.nn-navitem');
 				const path = navItem?.getAttribute('data-path') || navItem?.getAttribute('data-drag-path') || null;
