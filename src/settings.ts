@@ -142,7 +142,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 				heading: 'Protected folders',
 				items: [
 					{
-						desc: "Keep selected folders when they become empty. Enable 'Include subfolders' to protect the entire folder tree. Files inside can still be deleted.",
+						desc: "Keep selected folders when they become empty. Enable 'Protect subfolders' to protect the entire folder tree. Files inside can still be deleted.",
 						name: '',
 					},
 					{
@@ -182,7 +182,7 @@ export class NoteNavigatorSettingTab extends PluginSettingTab {
 						render: (setting: Setting) => {
 							setting.setName(entry.path);
 							setting.settingEl.addClass('note-navigator-protected-folder-item');
-							setting.controlEl.createSpan({ cls: 'note-navigator-protected-subfolders-label', text: 'Include subfolders: ' });
+							setting.controlEl.createSpan({ cls: 'note-navigator-protected-subfolders-label', text: 'Protect subfolders: ' });
 							setting.addToggle(toggle => toggle
 								.setValue(entry.recursive)
 								.onChange(async (value) => {

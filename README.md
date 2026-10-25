@@ -120,6 +120,7 @@ The plugin provides the following commands, accessible via the command palette o
 
 ### Utilities
 - **Rename parent folder of current note** - Opens a dialog to rename the parent folder of the currently active note
+- **Add parent or selected folder to protected folders** - Adds the current note's parent folder (or selected folder) to protected folders
 - **Log debugging messages to console** - Outputs debugging information about sorting and deletion methods
 
 ---

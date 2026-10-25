@@ -267,11 +267,49 @@ export default class NoteNavigator extends Plugin {
 				id: 'move-parent-folder-and-navigate',
 				name: 'Move parent folder and navigate to next note',
 			},
+			{
+				checkCallback: (checking: boolean) => {
+					const activeFile = this.app.workspace.getActiveFile();
+					if (this.settings.removeEmptyFolders && (activeFile?.parent || this.getSelectedFolder())) {
+						if (!checking) void this.addFolderToProtectedFolders();
+						return true;
+					}
+					return false;
+				},
+				id: 'add-folder-to-protected',
+				name: 'Add parent or selected folder to protected folders',
+			},
 		];
 
 		for (const cmd of commands) {
 			this.addCommand(cmd);
 		}
+	}
+
+	private getSelectedFolder(): TFolder | null {
+		const leaf = this.app.workspace.getLeavesOfType('file-explorer')[0];
+		const view = leaf?.view as { getSelectedItems?: () => TAbstractFile[] } | undefined;
+		const items = view?.getSelectedItems?.();
+		const folder = items?.find(item => item instanceof TFolder);
+		return folder instanceof TFolder ? folder : null;
+	}
+
+	private async addFolderToProtectedFolders() {
+		const activeFile = this.app.workspace.getActiveFile();
+		const folder = activeFile?.parent ?? this.getSelectedFolder();
+		if (!folder) {
+			new Notice('No folder found to protect.');
+			return;
+		}
+		const path = folder.path;
+		const isProtected = this.settings.protectedFolders.some((entry) => entry.path === path);
+		if (isProtected) {
+			new Notice('Folder is already protected.');
+			return;
+		}
+		this.settings.protectedFolders.push({ path, recursive: true });
+		await this.saveSettings();
+		new Notice(`Protected folder added: ${path || '/'}`);
 	}
 
 	private async deleteCurrentFileAndNavigate() {
