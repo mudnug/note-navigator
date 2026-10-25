@@ -597,6 +597,10 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 		const parentFolder = activeFile.parent;
+		if (this.deletionHelper.isProtectedOrContainsProtected(parentFolder)) {
+			new Notice('This folder cannot be moved because it or a nested folder is protected.');
+			return;
+		}
 
 		// Helper function to check if a folder is a descendant of the parent folder
 		const isDescendant = (folder: TFolder, parent: TFolder): boolean => {
