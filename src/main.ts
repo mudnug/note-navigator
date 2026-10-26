@@ -16,9 +16,7 @@ export default class NoteNavigator extends Plugin {
 	declare statisticsStorage: StatisticsStorage;
 	private deletionHelper!: DeletionHelper;
 	private fileHelper!: FileHelper;
-	private dialogObserver: MutationObserver | null = null;
 	private renameTimeout: number | null = null;
-	private dialogWaitTimeout: number | null = null;
 	private initializationTimeout: number | null = null;
 	private configChangeListenerRegistered = false;
 	private fadeObserver: MutationObserver | null = null;
@@ -158,16 +156,8 @@ export default class NoteNavigator extends Plugin {
 	}
 
 	onunload() {
-		if (this.dialogObserver) {
-			this.dialogObserver.disconnect();
-		}
-
 		if (this.renameTimeout) {
 			window.clearTimeout(this.renameTimeout);
-		}
-
-		if (this.dialogWaitTimeout) {
-			window.clearTimeout(this.dialogWaitTimeout);
 		}
 
 		if (this.initializationTimeout !== null) {
@@ -411,82 +401,38 @@ export default class NoteNavigator extends Plugin {
 			new Notice('A file must be open in the active editor.');
 			return;
 		}
-		this.handleMoveAndNavigate({
-			getNextFilePath: () => {
-				const nextFile = this.fileHelper.getAdjacentFile(activeFile, "next", this.settings.navigationScope);
-				return nextFile ? nextFile.path : null;
-			},
-			getTarget: () => activeFile,
-			moveCommandId: "file-explorer:move-file"
-		});
-	}
+		const originalParentFolder = activeFile.parent;
+		const nextFile = this.fileHelper.getAdjacentFile(activeFile, "next", this.settings.navigationScope);
+		const folders = [
+			this.app.vault.getRoot(),
+			...this.app.vault.getAllLoadedFiles().filter((file): file is TFolder => file instanceof TFolder)
+		].filter((folder, index, allFolders) => folder !== originalParentFolder && allFolders.indexOf(folder) === index);
 
-	private handleMoveAndNavigate({
-		getNextFilePath,
-		getTarget,
-		moveCommandId
-	}: {
-		getTarget: () => unknown,
-		getNextFilePath: () => string | null,
-		moveCommandId: string
-	}) {
-
-		const target = getTarget();
-		const nextFilePath = getNextFilePath();
-		if (!target || !nextFilePath) return;
-		const originalParentFolder = target instanceof TFile ? target.parent : null;
-
-		const onRename = async (file: TAbstractFile, oldPath: string) => {
-			if (file === target) {
-				this.app.vault.off('rename', onRename as (...data: unknown[]) => unknown);
-				if (this.dialogObserver) this.dialogObserver.disconnect();
+		const modal = new FolderSuggester(this.app, folders);
+		modal.onSelect = async (destination: TFolder) => {
+			const newPath = destination.path ? `${destination.path}/${activeFile.name}` : activeFile.name;
+			try {
+				await this.app.fileManager.renameFile(activeFile, newPath);
+				new Notice(`Successfully moved ${activeFile.name} to ${destination.path || '/'}`, 2800);
 
 				if (originalParentFolder) {
 					await this.checkAndCleanupEmptyParentFolder(originalParentFolder);
 				}
 
-				const fileToOpen = this.app.vault.getAbstractFileByPath(nextFilePath);
-				if (fileToOpen && fileToOpen instanceof TFile) {
-					await this.app.workspace.getLeaf().openFile(fileToOpen);
-					this.statisticsStorage.increment(StatsKey.FilesNavigated);
-					await this.saveSettings();
-				}
-			}
-		};
-		this.registerEvent(this.app.vault.on('rename', onRename));
-
-		const waitForDialog = () => {
-			let dialog = activeDocument.querySelector('.modal.mod-rename-file');
-			if (!dialog) {
-				dialog = Array.from(activeDocument.querySelectorAll('.modal')).find(modal => {
-					const header = modal.querySelector('.modal-header .modal-title');
-					return header && /move/i.test(header.textContent || '');
-				}) || null;
-			}
-			if (dialog && dialog.parentElement) {
-				// Disconnect any existing observer before creating a new one
-				if (this.dialogObserver) {
-					this.dialogObserver.disconnect();
-				}
-				this.dialogObserver = new MutationObserver(() => {
-					if (!dialog || !dialog.parentElement || !dialog.parentElement.contains(dialog)) {
-						this.app.vault.off('rename', onRename as (...data: unknown[]) => unknown);
-						if (this.dialogObserver) this.dialogObserver.disconnect();
+				if (nextFile) {
+					const fileToOpen = this.app.vault.getAbstractFileByPath(nextFile.path);
+					if (fileToOpen instanceof TFile) {
+						await this.app.workspace.getLeaf().openFile(fileToOpen);
+						this.statisticsStorage.increment(StatsKey.FilesNavigated);
+						await this.saveSettings();
 					}
-				});
-				this.dialogObserver.observe(dialog.parentElement, { childList: true });
-			} else {
-				// Clear any existing timeout before setting a new one
-				if (this.dialogWaitTimeout) {
-					window.clearTimeout(this.dialogWaitTimeout);
 				}
-				this.dialogWaitTimeout = window.setTimeout(waitForDialog, 50);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				new Notice(`Error moving file: ${message}`);
 			}
 		};
-		waitForDialog();
-
-		 
-		(this.app as App & { commands?: { executeCommandById?: (id: string) => void } }).commands?.executeCommandById?.(moveCommandId);
+		modal.open();
 	}
 
 	/* The following console log messages are specifically requested by the user here */
@@ -702,7 +648,7 @@ class FolderSuggester extends SuggestModal<TFolder> {
 	}
 
 	renderSuggestion(folder: TFolder, el: HTMLElement) {
-		el.setText(folder.path);
+		el.setText(folder.path || '/');
 	}
 
 	onChooseSuggestion(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
