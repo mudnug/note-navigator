@@ -52,10 +52,10 @@ export default class NoteNavigator extends Plugin {
 		}
 
 		this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
-			this.protectedFolderIcons.handleRename(file, oldPath);
+			void this.protectedFolderIcons.handleRename(file, oldPath);
 		}));
 		this.registerEvent(this.app.vault.on('delete', (file) => {
-			this.protectedFolderIcons.handleDelete(file);
+			void this.protectedFolderIcons.handleDelete(file);
 		}));
 	}
 
@@ -379,12 +379,15 @@ export default class NoteNavigator extends Plugin {
 				}
 			}
 
-			// apply a delay before deleting the file to avoid 'tab is busy' notification
-			await this.deletionHelper.safeDelete(activeFile, `File deleted`, 200);
-			this.statisticsStorage.increment(StatsKey.DeletedFiles);
-			await this.deletionHelper.handleAttachmentsAndFolders(attachments, orphanedFolders);
-			this.statisticsStorage.increment(StatsKey.DeletedAttachments, attachments.length);
-			this.statisticsStorage.increment(StatsKey.DeletedFolders, Array.from(orphanedFolders).filter(folder => !this.deletionHelper.isProtectedOrContainsProtected(folder)).length);
+			const deletionTargets: (TFile | TFolder)[] = [activeFile];
+			if (this.settings.removeOrphanAttachments) deletionTargets.push(...attachments);
+			if (this.settings.removeEmptyFolders) {
+				deletionTargets.push(...Array.from(orphanedFolders).filter(folder => !this.deletionHelper.isProtectedOrContainsProtected(folder)));
+			}
+			const deletedItems = await this.deletionHelper.deleteBatch(deletionTargets, 200);
+			this.statisticsStorage.increment(StatsKey.DeletedFiles, deletedItems.includes(activeFile) ? 1 : 0);
+			this.statisticsStorage.increment(StatsKey.DeletedAttachments, deletedItems.filter(item => item instanceof TFile && item !== activeFile).length);
+			this.statisticsStorage.increment(StatsKey.DeletedFolders, deletedItems.filter(item => item instanceof TFolder).length);
 			await this.saveSettings();
 		} catch {
 			new Notice('An error occurred while navigating or deleting the file.');

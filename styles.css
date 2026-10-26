@@ -42,6 +42,40 @@
 	text-decoration: underline;
 }
 
+.note-navigator-delete-notice {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.note-navigator-delete-notice-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.note-navigator-delete-notice .note-navigator-undo-button {
+	margin: 0;
+	padding: 4px 12px;
+}
+
+.note-navigator-delete-notice .note-navigator-close-hint {
+	align-self: center;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.note-navigator-delete-notice .note-navigator-close-hint[hidden] {
+	display: none !important;
+}
+
+.note-navigator-delete-notice-list {
+	max-height: 180px;
+	margin: 0;
+	overflow-y: auto;
+	padding-inline-start: 20px;
+}
+
 .note-navigator-support-section {
 	margin-top: 1rem;
 }

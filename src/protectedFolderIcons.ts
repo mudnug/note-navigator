@@ -10,6 +10,14 @@ export class ProtectedFolderIcons {
 		this.plugin = plugin;
 	}
 
+	disconnect(): void {
+		if (this.observer) {
+			this.observer.disconnect();
+			this.observer = null;
+		}
+		this.clear();
+	}
+
 	apply(): void {
 		if (this.observer) {
 			this.observer.disconnect();
@@ -93,14 +101,6 @@ export class ProtectedFolderIcons {
 			};
 			modal.open();
 		});
-	}
-
-	disconnect(): void {
-		if (this.observer) {
-			this.observer.disconnect();
-			this.observer = null;
-		}
-		this.clear();
 	}
 
 	private isPathProtected(path: string): boolean {

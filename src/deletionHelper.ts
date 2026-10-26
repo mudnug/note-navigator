@@ -1,9 +1,22 @@
-import { TFile, TFolder, App, Notice } from 'obsidian';
+import { TAbstractFile, TFile, TFolder, App, Notice } from 'obsidian';
 
 import { FileHelper } from './fileHelper';
 import { LinkHelper } from './linkHelper';
 import { NoteNavigatorSettings } from './settings';
 import { ConfirmationDialog, ConfirmationSection } from './ui';
+
+interface DeletedFileSnapshot {
+	path: string;
+	data: ArrayBuffer;
+	ctime: number;
+	mtime: number;
+}
+
+interface DeletedItemSnapshot {
+	path: string;
+	folders: string[];
+	files: DeletedFileSnapshot[];
+}
 
 export class DeletionHelper {
 	private fileHelper: FileHelper;
@@ -33,29 +46,16 @@ export class DeletionHelper {
 	}
 
 	async handleAttachmentsAndFolders(attachments: TFile[], folders: Set<TFolder>) {
-		const deletedItems: string[] = [];
-
+		const items: (TFile | TFolder)[] = [];
 		if (this.settings.removeOrphanAttachments) {
-			for (const attachment of attachments) {
-				await this.deleteWithoutNotice(attachment);
-				deletedItems.push(`File: ${attachment.name}`);
-			}
+			items.push(...attachments);
 		}
-
 		if (this.settings.removeEmptyFolders) {
 			for (const folder of folders) {
-				if (this.isProtectedOrContainsProtected(folder)) {
-					continue;
-				}
-				await this.deleteWithoutNotice(folder);
-				deletedItems.push(`Folder: ${folder.name}`);
+				if (!this.isProtectedOrContainsProtected(folder)) items.push(folder);
 			}
 		}
-
-		// Show grouped notification if items were deleted
-		if (deletedItems.length > 0) {
-			this.showGroupedDeletionNotice(deletedItems);
-		}
+		await this.deleteBatch(items);
 	}
 
 	async confirmDeletion(activeFile: TFile, attachments: TFile[], folders: Set<TFolder>): Promise<boolean> {
@@ -94,7 +94,7 @@ export class DeletionHelper {
 			if (delayMs > 0) {
 				await new Promise(resolve => window.setTimeout(resolve, delayMs));
 			}
-			return await this.performDelete(fileOrFolder, successMessage === null);
+			return (await this.deleteBatch([fileOrFolder], 0, successMessage !== null, successMessage ?? undefined)).length > 0;
 		} catch (error) {
 			console.error(`Error deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}:`, error);
 			new Notice(`An error occurred while deleting ${fileOrFolder instanceof TFolder ? "folder" : "file"}.`);
@@ -103,51 +103,154 @@ export class DeletionHelper {
 	}
 
 	async deleteWithNotice(fileOrFolder: TFile | TFolder, customMessage?: string) {
-		await this.performDelete(fileOrFolder, false, customMessage);
+		await this.deleteBatch([fileOrFolder], 0, true, customMessage);
 	}
 
 	async deleteWithoutNotice(fileOrFolder: TFile | TFolder) {
-		await this.performDelete(fileOrFolder, true);
+		await this.deleteBatch([fileOrFolder], 0, false);
 	}
 
-	private async performDelete(fileOrFolder: TFile | TFolder, skipNotice: boolean, customMessage?: string): Promise<boolean> {
-		if (fileOrFolder instanceof TFolder && this.isProtectedOrContainsProtected(fileOrFolder)) {
-			return false;
-		}
-		await this.app.fileManager.trashFile(fileOrFolder);
+	async deleteBatch(items: (TFile | TFolder)[], delayMs = 0, showNotice = true, customMessage?: string): Promise<(TFile | TFolder)[]> {
+		const deletedItems: (TFile | TFolder)[] = [];
+		const snapshots: DeletedItemSnapshot[] = [];
 
-		if (this.settings.showDeleteNotice && !skipNotice) {
-			const message = customMessage || `Deleted ${fileOrFolder instanceof TFolder ? 'folder: ' : ': '}${fileOrFolder.name}`;
-			new Notice(message);
+		for (const item of items) {
+			if (item instanceof TFolder && this.isProtectedOrContainsProtected(item)) {
+				continue;
+			}
+			if (delayMs > 0 && deletedItems.length === 0) {
+				await new Promise(resolve => window.setTimeout(resolve, delayMs));
+			}
+			try {
+				const snapshot = await this.captureSnapshot(item);
+				await this.app.fileManager.trashFile(item);
+				deletedItems.push(item);
+				snapshots.push(snapshot);
+			} catch (error) {
+				console.error(`Error deleting ${item instanceof TFolder ? "folder" : "file"}:`, error);
+				new Notice(`An error occurred while deleting ${item instanceof TFolder ? "folder" : "file"}.`);
+			}
 		}
-		return true;
+
+		if (showNotice && this.settings.showDeleteNotice && snapshots.length > 0) {
+			this.showUndoNotice(snapshots, deletedItems, customMessage);
+		}
+		return deletedItems;
 	}
 
-	private showGroupedDeletionNotice(deletedItems: string[]) {
-		if (!this.settings.showDeleteNotice) {
-			return;
+	private async captureSnapshot(item: TFile | TFolder): Promise<DeletedItemSnapshot> {
+		const folders: string[] = [];
+		const files: DeletedFileSnapshot[] = [];
+		const collect = async (entry: TAbstractFile): Promise<void> => {
+			if (entry instanceof TFolder) {
+				folders.push(entry.path);
+				for (const child of entry.children) {
+					await collect(child);
+				}
+				return;
+			}
+			if (!(entry instanceof TFile)) return;
+			files.push({
+				ctime: entry.stat.ctime,
+				data: await this.app.vault.readBinary(entry),
+				mtime: entry.stat.mtime,
+				path: entry.path
+			});
+		};
+		await collect(item);
+		return { files, folders, path: item.path };
+	}
+
+	private showUndoNotice(snapshots: DeletedItemSnapshot[], items: (TFile | TFolder)[], customMessage?: string): void {
+		const filesCount = items.filter(item => item instanceof TFile).length;
+		const foldersCount = items.length - filesCount;
+		let message = customMessage ?? `Deleted ${items.length} item${items.length === 1 ? '' : 's'}`;
+		if (!customMessage && filesCount > 0 && foldersCount > 0) {
+			message += ` (${filesCount} file${filesCount === 1 ? '' : 's'}, ${foldersCount} folder${foldersCount === 1 ? '' : 's'})`;
+		} else if (!customMessage && filesCount > 0 && items.length > 1) {
+			message += ` (${filesCount} files)`;
+		} else if (!customMessage && foldersCount > 0 && items.length > 1) {
+			message += ` (${foldersCount} folders)`;
+		}
+		const deletedPaths = new Set<string>();
+		for (const snapshot of snapshots) {
+			for (const path of snapshot.folders) deletedPaths.add(path);
+			for (const file of snapshot.files) deletedPaths.add(file.path);
+		}
+		const fragment = new DocumentFragment();
+		const noticeContent = fragment.createDiv({ cls: 'note-navigator-delete-notice' });
+		const noticeActions = noticeContent.createDiv({ cls: 'note-navigator-delete-notice-actions' });
+		const undoButton = noticeActions.createEl('button', { cls: 'note-navigator-undo-button', text: 'Undo' });
+		const closeHint = noticeActions.createSpan({ cls: 'note-navigator-close-hint', text: 'Tap to close' });
+		closeHint.hidden = true;
+		noticeContent.createDiv({ text: message });
+		const pathList = noticeContent.createEl('ul', { cls: 'note-navigator-delete-notice-list' });
+		pathList.tabIndex = 0;
+		for (const path of deletedPaths) {
+			pathList.createEl('li', { text: path });
+		}
+		const notice = new Notice(fragment, 0);
+		let interacted = false;
+		const duration = Math.min(5000 + deletedPaths.size * 200, 10000);
+		const dismissTimeout = window.setTimeout(() => notice.hide(), duration);
+		const keepOpen = (event: Event) => {
+			if (interacted || !event.isTrusted) return;
+			interacted = true;
+			window.clearTimeout(dismissTimeout);
+			closeHint.hidden = false;
+		};
+		for (const eventName of ['wheel', 'pointerdown', 'touchstart', 'keydown']) {
+			noticeContent.addEventListener(eventName, keepOpen);
+		}
+		undoButton.addEventListener('click', () => {
+			undoButton.disabled = true;
+			void this.restoreSnapshots(snapshots);
+		});
+	}
+
+	private async restoreSnapshots(snapshots: DeletedItemSnapshot[]): Promise<void> {
+		let restoredFiles = 0;
+		let restoredFolders = 0;
+		const failedPaths: string[] = [];
+		const folders = new Set<string>();
+		const files: DeletedFileSnapshot[] = [];
+		for (const snapshot of snapshots) {
+			for (const path of snapshot.folders) folders.add(path);
+			for (const file of snapshot.files) files.push(file);
+		}
+		for (const path of Array.from(folders).sort((a, b) => a.split('/').length - b.split('/').length)) {
+			if (this.app.vault.getAbstractFileByPath(path)) {
+				continue;
+			}
+			try {
+				await this.app.vault.createFolder(path);
+				restoredFolders++;
+			} catch {
+				failedPaths.push(path);
+			}
 		}
 
-		const totalItems = deletedItems.length;
-		const filesCount = deletedItems.filter(item => item.startsWith('File:')).length;
-		const foldersCount = deletedItems.filter(item => item.startsWith('Folder:')).length;
-
-		let noticeMessage = `Deleted ${totalItems} item${totalItems > 1 ? 's' : ''}`;
-
-		if (filesCount > 0 && foldersCount > 0) {
-			noticeMessage += ` (${filesCount} file${filesCount > 1 ? 's' : ''}, ${foldersCount} folder${foldersCount > 1 ? 's' : ''})`;
-		} else if (filesCount > 0) {
-			noticeMessage += ` (${filesCount} file${filesCount > 1 ? 's' : ''})`;
-		} else if (foldersCount > 0) {
-			noticeMessage += ` (${foldersCount} folder${foldersCount > 1 ? 's' : ''})`;
+		for (const file of files) {
+			if (this.app.vault.getAbstractFileByPath(file.path)) {
+				failedPaths.push(file.path);
+				continue;
+			}
+			try {
+				await this.app.vault.createBinary(file.path, file.data, { ctime: file.ctime, mtime: file.mtime });
+				restoredFiles++;
+			} catch {
+				failedPaths.push(file.path);
+			}
 		}
 
-		const displayTimeMs = Math.min(3000 + (totalItems * 200), 10000); // Max 10 seconds
-
-		// Combine summary and detailed information into one notice
-		const combinedMessage = `${noticeMessage}\n${deletedItems.map(item => `• ${item}`).join('\n')}`;
-
-		new Notice(combinedMessage, displayTimeMs);
+		const restored = restoredFiles + restoredFolders;
+		const result = failedPaths.length > 0
+			? `Restored ${restored} item${restored === 1 ? '' : 's'}; could not restore ${failedPaths.length}.`
+			: `Restored ${restored} item${restored === 1 ? '' : 's'}.`;
+		new Notice(result);
+		if (failedPaths.length > 0) {
+			console.error('[Note Navigator] Could not restore deleted items:', failedPaths);
+		}
 	}
 
 	private async checkOrphanedFolder(folder: TFolder | null, filesToDelete: TFile[], orphanedFolders: Set<TFolder>) {
