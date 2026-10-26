@@ -123,7 +123,13 @@ export class FileHelper {
 
 		// If scope is limited to the active folder, stop searching
 		if (scope === 'activeFolder') {
-			return null;
+			const folderFiles = this.sortFiles(
+				originalFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
+			);
+			if (folderFiles.length === 0) {
+				return null;
+			}
+			return direction === "next" ? folderFiles[0] : folderFiles[folderFiles.length - 1];
 		}
 
 		let targetFolders = this.getTargetFolders(originalFolder, direction);
