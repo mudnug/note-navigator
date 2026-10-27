@@ -85,23 +85,7 @@ export default class NoteNavigator extends Plugin {
 
 	updateAttachmentFolderFade() {
 		try {
-			this.clearAttachmentFade();
-
-			if (!this.settings.fadeAttachmentFolders) {
-				return;
-			}
-
-			const attachmentPath = this.getAttachmentFolderPath();
-			if (!attachmentPath || attachmentPath === "." || attachmentPath === "./") {
-				return;
-			}
-
-			const titles = Array.from(activeDocument.querySelectorAll('.nav-folder-title'))
-				.filter(title => title.getAttribute('data-path') === attachmentPath);
-			titles.forEach(title => {
-				const folder = title.closest('.nav-folder');
-				if (folder) folder.addClass('note-navigator-fade');
-			});
+			this.applyAttachmentFade();
 		} catch (error) {
 			console.error('[Note Navigator] Failed to update attachment folder fade:', error);
 		}
