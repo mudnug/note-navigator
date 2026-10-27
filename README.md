@@ -112,6 +112,7 @@ The plugin provides the following commands, accessible via the command palette o
 ### File Operations
 - **Delete current file and navigate to next note** - Deletes the active file and navigates to the next file
 - **Move current file and navigate to next note** - Opens the move dialog for the current file, then navigates to the next file
+- **Move parent folder and navigate to next note** - Opens a destination picker for the active note's parent folder, then navigates to the next note
 
 ### Navigation
 - **Navigate to next file** - Navigate to the next file in the current folder or vault
@@ -121,7 +122,7 @@ The plugin provides the following commands, accessible via the command palette o
 ### Utilities
 - **Rename parent folder of current note** - Opens a dialog to rename the parent folder of the currently active note
 - **Add parent or selected folder to protected folders** - Adds the current note's parent folder (or selected folder) to protected folders
-- **Log debugging messages to console** - Outputs debugging information about sorting and deletion methods
+- **Copy Debug information to clipboard** - Copies debugging information about sorting and deletion settings to the clipboard
 
 ---
 
