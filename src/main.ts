@@ -96,10 +96,8 @@ export default class NoteNavigator extends Plugin {
 				return;
 			}
 
-			const pathSegments = attachmentPath.split('/');
-			const folderName = pathSegments[pathSegments.length - 1];
-
-			const titles = activeDocument.querySelectorAll(`.nav-folder-title[data-path$="${CSS.escape(folderName)}"]`);
+			const titles = Array.from(activeDocument.querySelectorAll('.nav-folder-title'))
+				.filter(title => title.getAttribute('data-path') === attachmentPath);
 			titles.forEach(title => {
 				const folder = title.closest('.nav-folder');
 				if (folder) folder.addClass('note-navigator-fade');
@@ -126,19 +124,17 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 
-		const pathSegments = attachmentPath.split('/');
-		const folderName = pathSegments[pathSegments.length - 1];
-		const selector = `.nav-folder-title[data-path$="${CSS.escape(folderName)}"]`;
-
-		const titles = activeDocument.querySelectorAll(selector);
+		const titles = Array.from(activeDocument.querySelectorAll('.nav-folder-title'))
+			.filter(title => title.getAttribute('data-path') === attachmentPath);
 		titles.forEach(title => {
 			const folder = title.closest('.nav-folder');
 			if (folder) folder.addClass('note-navigator-fade');
 		});
 
 		this.fadeObserver = new MutationObserver(() => {
-			const titles = activeDocument.querySelectorAll(selector);
-			titles.forEach(title => {
+			const matchingTitles = Array.from(activeDocument.querySelectorAll('.nav-folder-title'))
+				.filter(title => title.getAttribute('data-path') === attachmentPath);
+			matchingTitles.forEach(title => {
 				const folder = title.closest('.nav-folder');
 				if (folder && !folder.hasClass('note-navigator-fade')) {
 					folder.addClass('note-navigator-fade');
@@ -188,7 +184,7 @@ export default class NoteNavigator extends Plugin {
 
 	private getAttachmentFolderPath(): string {
 		const configValue = this.getVaultConfig("attachmentFolderPath");
-		return typeof configValue === "string" ? configValue : "";
+		return typeof configValue === "string" ? configValue.replace(/^\.\//, '').replace(/\/+$/, '') : "";
 	}
 
 	private clearAttachmentFade(): void {
