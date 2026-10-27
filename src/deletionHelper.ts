@@ -41,7 +41,8 @@ export class DeletionHelper {
 			}
 		}
 
-		await this.checkOrphanedFolder(activeFile.parent, [activeFile, ...attachmentFiles], orphanedFolders);
+		const filesToDelete = [activeFile, ...(this.settings.removeOrphanAttachments ? attachmentFiles : [])];
+		await this.checkOrphanedFolder(activeFile.parent, filesToDelete, orphanedFolders);
 		return [attachmentFiles, orphanedFolders];
 	}
 
@@ -122,7 +123,13 @@ export class DeletionHelper {
 				await new Promise(resolve => window.setTimeout(resolve, delayMs));
 			}
 			try {
+				if (item instanceof TFolder && !this.fileHelper.isFolderCurrentlyEmpty(item)) {
+					continue;
+				}
 				const snapshot = await this.captureSnapshot(item);
+				if (item instanceof TFolder && !this.fileHelper.isFolderCurrentlyEmpty(item)) {
+					continue;
+				}
 				await this.app.fileManager.trashFile(item);
 				deletedItems.push(item);
 				snapshots.push(snapshot);
