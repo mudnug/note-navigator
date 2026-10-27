@@ -551,7 +551,6 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 
-		// Helper function to check if a folder is a descendant of the parent folder
 		const isDescendant = (folder: TFolder, parent: TFolder): boolean => {
 			let current: TFolder | null = folder.parent;
 			while (current) {
@@ -563,31 +562,15 @@ export default class NoteNavigator extends Plugin {
 			return false;
 		};
 
-		const getFoldersWithinDepth = (currentFolder: TFolder, maxDepth?: number): TFolder[] => {
-			const folders: TFolder[] = [];
-
-			// Add all child folders of current folder (but not the current folder itself)
-			if (currentFolder.children) {
-				for (const child of currentFolder.children) {
-					if (child instanceof TFolder && child !== currentFolder) {
-						// Don't add if it's a descendant of the parent folder (to avoid moving into itself)
-						if (!isDescendant(child, parentFolder)) {
-							folders.push(child);
-						}
-					}
-				}
-			}
-
-			// Also add the parent folder if we're not at root level and within depth limit
-			if (currentFolder.parent && currentFolder.parent !== currentFolder && (maxDepth === undefined || 1 <= maxDepth)) {
-				folders.push(currentFolder.parent);
-			}
-
-			return folders;
-		};
-
-		const allFolders = getFoldersWithinDepth(parentFolder, this.settings.maxDirectoryDeleteTraversal).filter(f =>
-			f !== parentFolder && !isDescendant(f, parentFolder)
+		const currentParent = parentFolder.parent;
+		const allFolders = [
+			this.app.vault.getRoot(),
+			...this.app.vault.getAllLoadedFiles().filter((file): file is TFolder => file instanceof TFolder)
+		].filter((folder, index, folders) =>
+			folder !== parentFolder &&
+			folder !== currentParent &&
+			!isDescendant(folder, parentFolder) &&
+			folders.indexOf(folder) === index
 		);
 
 		const modal = new FolderSuggester(this.app, allFolders);
@@ -601,7 +584,7 @@ export default class NoteNavigator extends Plugin {
 				nextFile = this.fileHelper.getAdjacentFile(boundaryFile, "next", this.settings.navigationScope);
 			}
 
-			const newPath = destination.path + '/' + parentFolder.name;
+			const newPath = destination.path ? `${destination.path}/${parentFolder.name}` : parentFolder.name;
 			try {
 				await this.app.fileManager.renameFile(parentFolder, newPath);
 				new Notice(`Successfully moved ${parentFolder.name} to ${destination.name}`, 2800);
