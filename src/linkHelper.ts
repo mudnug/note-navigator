@@ -15,10 +15,12 @@ export class LinkHelper {
 
 		const standardLinks = fileCache.links || [];
 		const embeddedLinks = fileCache.embeds || [];
+		const frontmatterLinks = fileCache.frontmatterLinks || [];
 
 		const decodedLinks = new Set<string>([
 			...standardLinks.map(link => this.decodePath(this.app.metadataCache.getFirstLinkpathDest(link.link, file.path)?.path || link.link)),
 			...embeddedLinks.map(embed => this.decodePath(this.app.metadataCache.getFirstLinkpathDest(embed.link, file.path)?.path || embed.link)),
+			...frontmatterLinks.map(link => this.decodePath(this.app.metadataCache.getFirstLinkpathDest(link.link, file.path)?.path || link.link)),
 		]);
 
 		return decodedLinks;
