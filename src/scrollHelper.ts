@@ -29,7 +29,7 @@ export function scrollToEndAndBeyond(editor: Editor) {
     const obsidianEditor = editor as ObsidianEditorWithCM;
     if (obsidianEditor.cm && obsidianEditor.cm.scrollDOM) {
         const scrollDOM = obsidianEditor.cm.scrollDOM;
-        scrollDOM.style.paddingBottom = `${scrollDOM.clientHeight / 2}px`;
+        scrollDOM.style.paddingBottom = `${scrollDOM.clientHeight / 4}px`;
         scrollDOM.scrollTop = scrollDOM.scrollHeight;
     }
 }
