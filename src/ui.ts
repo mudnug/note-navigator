@@ -30,6 +30,13 @@ export class ConfirmationDialog {
 
     private createModal(resolve: (value: boolean) => void): Modal {
         const modal = new Modal(this.app);
+        let settled = false;
+        const settle = (value: boolean) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        modal.onClose = () => settle(false);
         modal.contentEl.addClass("note-navigator-confirmation");
         modal.titleEl.setText(this.header);
 
@@ -47,14 +54,14 @@ export class ConfirmationDialog {
 
         const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
         cancelButton.onclick = () => {
+            settle(false);
             modal.close();
-            resolve(false);
         };
 
         const deleteButton = buttonContainer.createEl("button", { cls: "mod-warning", text: "Delete" });
         deleteButton.onclick = () => {
+            settle(true);
             modal.close();
-            resolve(true);
         };
 
         return modal;
