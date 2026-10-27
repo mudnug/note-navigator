@@ -107,209 +107,35 @@ export class FileHelper {
 	}
 
 	getAdjacentFile(currentFile: TFile, direction: "next" | "prev", scope: 'entireVault' | 'activeFolder'): TFile | null {
-		const originalFolder = currentFile.parent;
-		if (!originalFolder) {
-			if (this.settings.enableDebugLogging) {
-				console.warn("No parent folder found for the current file.");
-			}
-			return null;
-		}
-
-		// Attempt to find an adjacent file in the current folder
-		const adjacentFileInCurrentFolder = this.getAdjacentFileInFolder(originalFolder, currentFile, direction, false);
-		if (adjacentFileInCurrentFolder) {
-			return adjacentFileInCurrentFolder;
-		}
-
-		// If scope is limited to the active folder, stop searching
-		if (scope === 'activeFolder') {
-			const folderFiles = this.sortFiles(
-				originalFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
-			);
-			if (folderFiles.length === 0) {
-				return null;
-			}
-			return direction === "next" ? folderFiles[0] : folderFiles[folderFiles.length - 1];
-		}
-
-		let targetFolders = this.getTargetFolders(originalFolder, direction);
-		let currentFolder: TFolder | null = originalFolder;
-
-		while (targetFolders && targetFolders.length > 0) {
-			// Sort target folders alphabetically
-			const sortedFolders = targetFolders.sort((a, b) =>
-				a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-			);
-
-			const currentIndex = sortedFolders.findIndex(f => f.name === currentFolder?.name);
-			let targetFolder: TFolder | null = null;
-
-			// Determine the next or previous folder based on the direction
-			if (direction === "next" && currentIndex < sortedFolders.length - 1) {
-				targetFolder = sortedFolders[currentIndex + 1];
-			} else if (direction === "prev") {
-				if (currentIndex > 0) {
-					targetFolder = sortedFolders[currentIndex - 1];
-				} else if (currentIndex === 0) {
-					targetFolder = sortedFolders[0].parent || null;
-				} else {
-					targetFolder = sortedFolders[sortedFolders.length - 1];
-				}
-			}
-
-			// For "next", traverse into the deepest child folder
-			if (direction === "next") {
-				while (targetFolder) {
-					const childFolders = targetFolder.children.filter((child): child is TFolder => child instanceof TFolder);
-					if (childFolders.length === 0) break;
-
-					targetFolder = childFolders.sort((a, b) =>
-						a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-					)[0]; // Select the first child folder
-				}
-			}
-
-			// Handle edge cases for "next" and "prev" directions
-			if (!targetFolder && direction === "next" && currentFolder) {
-				targetFolder = currentFolder.parent;
-			}
-
-			if (direction === "prev" && currentFolder && targetFolder === currentFolder.parent) {
-				const grandParent = currentFolder.parent?.parent;
-				if (grandParent) {
-					targetFolders = this.getTargetFolders(grandParent, direction);
-					if (targetFolders) {
-						currentFolder = currentFolder.parent;
-						continue;
-					}
-				}
-			}
-
-			// Attempt to find an adjacent file in the target folder
-			if (targetFolder) {
-				const adjacentFileInTargetFolder = this.getAdjacentFileInFolder(targetFolder, currentFile, direction, true);
-				if (adjacentFileInTargetFolder) {
-					return adjacentFileInTargetFolder;
-				}
-			}
-
-			currentFolder = targetFolder;
-			targetFolders = targetFolder ? this.getTargetFolders(targetFolder, direction) : null;
-		}
-
-		// Wraparound logic for root folder
-		if (direction === "next" && originalFolder.parent == null) {
-			// We're in the root folder and at the end, so wrap to the first file in the root
-			const rootFiles = this.sortFiles(
-				originalFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
-			);
-			if (rootFiles.length > 0) {
-				return rootFiles[0];
-			}
-		}
-		// For prev, wrap to last file in root
-		if (direction === "prev" && originalFolder.parent == null) {
-			const rootFiles = this.sortFiles(
-				originalFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
-			);
-			if (rootFiles.length > 0) {
-				return rootFiles[rootFiles.length - 1];
-			}
-		}
-
-		// Wraparound for files in subfolders of root when we've traversed up
-		if (direction === "next" && currentFolder?.parent == null && currentFolder) {
-			const rootFiles = this.sortFiles(
-				currentFolder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
-			);
-			if (rootFiles.length > 0) {
-				return rootFiles[0];
-			}
-		}
-
-		return null;
-	}
-
-	private getAdjacentFileInFolder(folder: TFolder, currentFile: TFile, direction: "next" | "prev", isOpeningNewFolder: boolean): TFile | null {
-		const folderFiles = this.sortFiles(
+		const root = this.app.vault.getRoot();
+		const folderFiles = (folder: TFolder): TFile[] => this.sortFiles(
 			folder.children.filter((child): child is TFile => child instanceof TFile && child.extension === "md")
 		);
 
-		if (isOpeningNewFolder) {
-			if (folderFiles.length > 0) {
-				const result =
-					direction === "next"
-						? folderFiles[0] // First file for "next"
-						: folderFiles[folderFiles.length - 1]; // Last file for "prev"
-				return result;
-			}
+		if (scope === 'activeFolder') {
+			const parent = currentFile.parent;
+			if (!parent) return null;
+			const files = folderFiles(parent);
+			const currentIndex = files.findIndex(file => file.path === currentFile.path);
+			if (currentIndex === -1 || files.length === 0) return null;
+			const offset = direction === "next" ? 1 : -1;
+			return files[(currentIndex + offset + files.length) % files.length];
 		}
 
-		const currentIndex = folderFiles.findIndex(f => f.path === currentFile.path);
+		const files: TFile[] = [];
+		const visitFolder = (folder: TFolder) => {
+			files.push(...folderFiles(folder));
+			const childFolders = folder.children
+				.filter((child): child is TFolder => child instanceof TFolder)
+				.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+			for (const childFolder of childFolders) visitFolder(childFolder);
+		};
+		visitFolder(root);
 
-		if (currentIndex !== -1) {
-			if (direction === "next" && currentIndex < folderFiles.length - 1) {
-				return folderFiles[currentIndex + 1];
-			}
-			if (direction === "prev" && currentIndex > 0) {
-				return folderFiles[currentIndex - 1];
-			}
-		}
-
-		return null;
+		const currentIndex = files.findIndex(file => file.path === currentFile.path);
+		if (currentIndex === -1 || files.length === 0) return null;
+		const offset = direction === "next" ? 1 : -1;
+		return files[(currentIndex + offset + files.length) % files.length];
 	}
 
-	private getTargetFolders(currentFolder: TFolder, direction: "next" | "prev"): TFolder[] | null {
-		const getChildFolders = (folder: TFolder): TFolder[] =>
-			folder.children.filter((child): child is TFolder => child instanceof TFolder);
-
-		if (direction === "prev") {
-			const parent = currentFolder.parent;
-
-			// If no parent folder exists, return subfolders of the root folder
-			if (!parent) return getChildFolders(currentFolder);
-
-			const childFolders = getChildFolders(currentFolder);
-
-			// If no children exist, check parent siblings or move up another level
-			if (childFolders.length === 0) {
-				const siblings = getChildFolders(parent);
-
-				if (siblings[0] === currentFolder) {
-					if (parent.parent) {
-						const parentSiblings = getChildFolders(parent.parent).sort((a, b) =>
-							a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-						);
-						const parentIndex = parentSiblings.findIndex(f => f.name === parent.name);
-
-						if (parentIndex > 0) {
-							// Return the folder above the current folder's parent in the sort order
-							return [parentSiblings[parentIndex - 1]];
-						}
-					}
-				}
-
-				return siblings;
-			}
-
-			// Sort children alphabetically and check hierarchy
-			const sortedChildren = childFolders.sort((a, b) =>
-				a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-			);
-
-			if (sortedChildren[0] === currentFolder) {
-				return parent.parent ? this.getTargetFolders(parent.parent, direction) : null;
-			}
-
-			return childFolders;
-		}
-
-		// Handle "next" direction by returning siblings of the current folder
-		// If at root level (no parent), return child folders to enable wraparound traversal,
-		// mirroring the "prev" behavior
-		if (!currentFolder.parent) {
-			return getChildFolders(currentFolder);
-		}
-		return getChildFolders(currentFolder.parent);
-	}
 }
