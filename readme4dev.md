@@ -22,7 +22,7 @@
 ### How to use the code
 
 *   Clone this repo.
-*   Make sure your NodeJS is at least v16 (`node --version`).
+*   Make sure Node.js is at least v18.18.0 (`node --version`); the release workflow uses Node 24.
 *   `npm i` or `yarn` to install dependencies.
 *   `npm run dev` to start compilation in watch mode.
 
