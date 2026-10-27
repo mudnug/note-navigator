@@ -69,16 +69,18 @@ export default class NoteNavigator extends Plugin {
 		}
 	}
 	
-	async saveSettings() {
-		this.settingsSavePromise = this.settingsSavePromise.then(async () => {
+	async saveSettings(throwOnError = false) {
+		const savePromise = this.settingsSavePromise.then(async () => {
 			try {
 				await this.saveData(this.settings);
-			} catch {
+			} catch (error) {
 				// "Note Navigator" is the proper name of the plugin and must retain its capitalization
 				new Notice('Error saving Note Navigator plugin settings.');
+				if (throwOnError) throw error;
 			}
 		});
-		await this.settingsSavePromise;
+		this.settingsSavePromise = savePromise.catch(() => { });
+		await savePromise;
 	}
 
 	updateAttachmentFolderFade() {
