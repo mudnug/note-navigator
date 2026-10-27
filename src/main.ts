@@ -108,8 +108,13 @@ export default class NoteNavigator extends Plugin {
 			return;
 		}
 
+		const isAttachmentFolder = (title: Element): boolean => {
+			const folderPath = title.getAttribute('data-path') ?? '';
+			return folderPath === attachmentPath || folderPath.endsWith(`/${attachmentPath}`);
+		};
+
 		const titles = Array.from(activeDocument.querySelectorAll('.nav-folder-title'))
-			.filter(title => title.getAttribute('data-path') === attachmentPath);
+			.filter(isAttachmentFolder);
 		titles.forEach(title => {
 			const folder = title.closest('.nav-folder');
 			if (folder) folder.addClass('note-navigator-fade');
@@ -117,7 +122,7 @@ export default class NoteNavigator extends Plugin {
 
 		this.fadeObserver = new MutationObserver(() => {
 			const matchingTitles = Array.from(activeDocument.querySelectorAll('.nav-folder-title'))
-				.filter(title => title.getAttribute('data-path') === attachmentPath);
+				.filter(isAttachmentFolder);
 			matchingTitles.forEach(title => {
 				const folder = title.closest('.nav-folder');
 				if (folder && !folder.hasClass('note-navigator-fade')) {
@@ -126,7 +131,12 @@ export default class NoteNavigator extends Plugin {
 			});
 		});
 
-		this.fadeObserver.observe(activeDocument.body, { childList: true, subtree: true });
+		this.fadeObserver.observe(activeDocument.body, {
+			attributeFilter: ['data-path'],
+			attributes: true,
+			childList: true,
+			subtree: true,
+		});
 	}
 
 	applyProtectedFolderIcons(): void {
